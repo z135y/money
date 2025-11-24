@@ -100,7 +100,7 @@
 
 <script>
     // ==========================================
-    // ⚠️ 您的 Google Apps Script URL (已自動帶入)
+    // ✅ 已幫您填入正確的 Google Script 網址
     // ==========================================
     const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby0OZw0KhsWtbrkeAUmf8BCj-WD_8Zhlhbycbxy5znC5F3JryqYD8gIbz_JmbN0nm0/exec"; 
     // ==========================================
@@ -194,7 +194,7 @@
             btn.classList.remove('active');
             if(type === 'none' && btn.innerText === '無') btn.classList.add('active');
             if(type === 'percent' && value === 0.95 && btn.innerText.includes('95')) btn.classList.add('active');
-            if(type === 'percent' && value === 0.9 && btn.innerText ===('9折')) btn.classList.add('active');
+            if(type === 'percent' && value === 0.9 && btn.innerText.includes('9折')) btn.classList.add('active');
             if(type === 'percent' && value === 0.85 && btn.innerText.includes('85')) btn.classList.add('active');
             if(type === 'minus' && btn.innerText.includes('-50')) btn.classList.add('active');
         });
