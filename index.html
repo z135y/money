@@ -3,17 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🍵 茶葉 POS (折扣版)</title>
+    <title>🍵 茶葉 POS (全品項版)</title>
     <style>
-        /* --- POS 基礎樣式 (保持不變) --- */
+        /* --- POS 樣式 --- */
         body { font-family: -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", sans-serif; margin: 0; background-color: #f2f2f7; display: flex; height: 100vh; overflow: hidden; }
-        .product-area { flex: 7; padding: 15px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; align-content: start; }
-        .product-card { background: white; border-radius: 12px; padding: 15px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); cursor: pointer; transition: 0.1s; border: 2px solid transparent; user-select: none; }
-        .product-card:active { transform: scale(0.95); border-color: #27ae60; background: #e8f8f5; }
-        .p-name { font-weight: bold; font-size: 16px; color: #2c3e50; margin-bottom: 5px; }
-        .p-price { color: #e67e22; font-weight: bold; font-size: 14px; }
-        .tag { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-bottom: 5px; }
         
+        /* 商品區設定 */
+        .product-area { flex: 7; padding: 15px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 12px; align-content: start; }
+        
+        /* 標題分隔線 */
+        .category-title { grid-column: 1 / -1; font-size: 14px; color: #888; font-weight: bold; margin-top: 15px; margin-bottom: 5px; border-left: 4px solid #2c3e50; padding-left: 8px; }
+        .category-title:first-child { margin-top: 0; }
+
+        .product-card { background: white; border-radius: 12px; padding: 15px 10px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); cursor: pointer; transition: 0.1s; border: 2px solid transparent; user-select: none; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .product-card:active { transform: scale(0.96); border-color: #27ae60; background: #e8f8f5; }
+        
+        .p-name { font-weight: bold; font-size: 15px; color: #2c3e50; margin: 5px 0; line-height: 1.3; }
+        .p-price { color: #e67e22; font-weight: bold; font-size: 14px; }
+        .tag { width: 25px; height: 4px; border-radius: 2px; margin-bottom: 5px; }
+
         /* 右側結帳區 */
         .sidebar { flex: 3; background: white; display: flex; flex-direction: column; border-left: 1px solid #ddd; box-shadow: -5px 0 15px rgba(0,0,0,0.05); min-width: 320px; }
         .cart-header { padding: 15px; background: #2c3e50; color: white; font-weight: bold; text-align: center; font-size: 18px; }
@@ -21,33 +29,31 @@
         .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; }
         .item-info { flex: 1; }
         .item-name { font-size: 14px; font-weight: bold; display: block; }
-        .item-qty { font-weight: bold; color: #27ae60; background: #e8f8f5; padding: 2px 8px; border-radius: 10px; font-size: 14px; }
+        .item-spec { font-size: 12px; color: #27ae60; } /* 標示這是飲料還是茶葉 */
+        .item-qty { font-weight: bold; color: #fff; background: #2c3e50; padding: 2px 8px; border-radius: 10px; font-size: 13px; }
         .btn-del { color: #e74c3c; cursor: pointer; padding: 5px; font-size: 18px; margin-left: 10px; }
 
-        /* --- 新增：折扣區塊 --- */
-        .discount-section { padding: 10px 20px; background: #fff; border-top: 1px dashed #ccc; }
+        /* 折扣區 */
+        .discount-section { padding: 10px 15px; background: #fff; border-top: 1px dashed #ccc; }
         .discount-label { font-size: 12px; color: #888; margin-bottom: 5px; display: block; font-weight: bold; }
-        .discount-row { display: flex; gap: 8px; }
-        .disc-btn { flex: 1; padding: 8px; font-size: 12px; border: 1px solid #ddd; background: #f9f9f9; border-radius: 6px; cursor: pointer; color: #555; font-weight: bold; transition: 0.2s; }
-        .disc-btn:active { transform: scale(0.95); }
+        .discount-row { display: flex; gap: 5px; flex-wrap: wrap; }
+        .disc-btn { flex: 1; min-width: 70px; padding: 8px 0; font-size: 12px; border: 1px solid #ddd; background: #f9f9f9; border-radius: 6px; cursor: pointer; color: #555; font-weight: bold; }
         .disc-btn.active { background: #e74c3c; color: white; border-color: #e74c3c; }
 
-        /* 結帳區塊 */
-        .checkout-section { padding: 20px; background: #f8f9fa; border-top: 1px solid #ddd; }
-        
-        /* 金額顯示優化 */
-        .price-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; font-size: 14px; color: #666; }
-        .total-row { display: flex; justify-content: space-between; align-items: center; font-size: 28px; font-weight: 800; color: #2c3e50; margin-top: 10px; margin-bottom: 15px; border-top: 2px solid #ddd; padding-top: 10px; }
-        .strike { text-decoration: line-through; color: #999; font-size: 16px; margin-right: 5px; }
-        .discount-text { color: #e74c3c; font-size: 14px; font-weight: bold; }
+        /* 結帳區 */
+        .checkout-section { padding: 15px; background: #f8f9fa; border-top: 1px solid #ddd; }
+        .total-row { display: flex; justify-content: space-between; align-items: center; font-size: 26px; font-weight: 800; color: #2c3e50; margin-top: 5px; margin-bottom: 10px; }
+        .price-row { display: flex; justify-content: space-between; font-size: 13px; color: #666; margin-bottom: 3px; }
+        .strike { text-decoration: line-through; color: #999; }
+        .discount-text { color: #e74c3c; font-weight: bold; }
 
-        .payment-methods { display: flex; gap: 10px; margin-bottom: 15px; }
-        .pay-btn { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; text-align: center; font-weight: bold; background: white; }
+        .payment-methods { display: flex; gap: 8px; margin-bottom: 10px; }
+        .pay-btn { flex: 1; padding: 10px 0; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; text-align: center; font-weight: bold; font-size: 14px; background: white; }
         .pay-btn.active { background: #2c3e50; color: white; border-color: #2c3e50; }
 
-        .btn-checkout { width: 100%; padding: 15px; background: #27ae60; color: white; border: none; border-radius: 8px; font-size: 20px; font-weight: bold; cursor: pointer; }
+        .btn-checkout { width: 100%; padding: 12px; background: #27ae60; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; }
         .btn-checkout:disabled { background: #95a5a6; }
-        .btn-clear { width: 100%; margin-top: 10px; padding: 10px; background: transparent; border: 1px solid #e74c3c; color: #e74c3c; border-radius: 8px; cursor: pointer; }
+        .btn-clear { width: 100%; margin-top: 8px; padding: 8px; background: transparent; border: 1px solid #e74c3c; color: #e74c3c; border-radius: 8px; cursor: pointer; font-size: 14px; }
 
         @media (max-width: 768px) { body { flex-direction: column; } .product-area { flex: 1.5; } .sidebar { flex: 1; } }
     </style>
@@ -59,16 +65,17 @@
 <div class="sidebar">
     <div class="cart-header">🛒 購物車</div>
     <div class="cart-list" id="cartList">
-        <div style="text-align:center; color:#999; margin-top:50px;">點擊左側商品加入</div>
+        <div style="text-align:center; color:#999; margin-top:50px;">尚未點餐</div>
     </div>
 
     <div class="discount-section">
-        <span class="discount-label">🎁 套用折扣 (Discount)</span>
+        <span class="discount-label">🎁 優惠折扣</span>
         <div class="discount-row">
-            <button class="disc-btn active" onclick="setDiscount('none', 0)">無折扣</button>
-            <button class="disc-btn" onclick="setDiscount('percent', 0.95)">IG打卡 95折</button>
-            <button class="disc-btn" onclick="setDiscount('percent', 0.9)">親友 9折</button>
-            <button class="disc-btn" onclick="setDiscount('minus', 50)">-50元</button>
+            <button class="disc-btn active" onclick="setDiscount('none', 0)">無</button>
+            <button class="disc-btn" onclick="setDiscount('percent', 0.95)">95折</button>
+            <button class="disc-btn" onclick="setDiscount('percent', 0.9)">9折</button>
+            <button class="disc-btn" onclick="setDiscount('percent', 0.85)">85折</button>
+            <button class="disc-btn" onclick="setDiscount('minus', 50)">-50</button>
         </div>
     </div>
 
@@ -93,44 +100,81 @@
 
 <script>
     // ==========================================
-    // ⚠️ 請在此填入您的 Google Apps Script 網址
+    // ⚠️ 您的 Google Apps Script URL (已自動帶入)
     // ==========================================
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz9s2NUQupy7plDN-sRqQdbULRV5T5LE8xE4SYYUE_MR2vqT2O-bt1R5cwnOvhaYS5MYA/exec"; 
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby0OZw0KhsWtbrkeAUmf8BCj-WD_8Zhlhbycbxy5znC5F3JryqYD8gIbz_JmbN0nm0/exec"; 
     // ==========================================
 
-    const products = [
-        { id: 1, name: '文山包種茶', price: 250, color: '#27ae60' },
-        { id: 2, name: '蜜香紅茶', price: 300, color: '#e74c3c' },
-        { id: 3, name: '紅烏龍', price: 450, color: '#d35400' },
-        { id: 4, name: '凍頂烏龍', price: 350, color: '#f1c40f' },
-        { id: 5, name: '茶山漫遊禮盒', price: 1100, color: '#8e44ad' },
-        { id: 6, name: '盒裝茶包(10入)', price: 250, color: '#3498db' },
-        { id: 7, name: '現萃茶 (杯)', price: 50, color: '#1abc9c' },
-        { id: 8, name: '提袋/包材', price: 10, color: '#95a5a6' }
+    // 1. 商品資料庫 (分區管理)
+    const categories = [
+        {
+            title: "📦 茶葉與禮盒 (Retail)",
+            items: [
+                { id: 1, name: '文山包種茶', price: 250, color: '#27ae60', type: '茶葉' },
+                { id: 2, name: '蜜香紅茶', price: 300, color: '#e74c3c', type: '茶葉' },
+                { id: 3, name: '紅烏龍', price: 450, color: '#d35400', type: '茶葉' },
+                { id: 4, name: '凍頂烏龍', price: 350, color: '#f1c40f', type: '茶葉' },
+                { id: 5, name: '茶山漫遊禮盒', price: 1100, color: '#8e44ad', type: '禮盒' },
+                { id: 6, name: '盒裝茶包(10入)', price: 250, color: '#3498db', type: '茶包' }
+            ]
+        },
+        {
+            title: "🥤 現萃茶飲 (To Go)",
+            items: [
+                { id: 7, name: '現萃-文山包種', price: 60, color: '#2ecc71', type: '飲品' },
+                { id: 8, name: '現萃-蜜香紅茶', price: 60, color: '#ff7675', type: '飲品' },
+                { id: 9, name: '現萃-紅烏龍', price: 60, color: '#e67e22', type: '飲品' },
+                { id: 10, name: '現萃-凍頂烏龍', price: 60, color: '#f1c40f', type: '飲品' },
+                { id: 11, name: '冷泡茶 (瓶)', price: 80, color: '#1abc9c', type: '飲品' }
+            ]
+        },
+        {
+            title: "🛍️ 其他",
+            items: [
+                { id: 12, name: '提袋/包材', price: 10, color: '#95a5a6', type: '雜項' }
+            ]
+        }
     ];
 
     let cart = {};
     let currentMethod = '現金';
-    
-    // 折扣狀態
-    let discountType = 'none'; // none, percent, minus
-    let discountValue = 0;     // 0.9, 50
+    let discountType = 'none';
+    let discountValue = 0;
 
     window.onload = () => renderProducts();
 
+    // 渲染商品 (含分類標題)
     function renderProducts() {
         const grid = document.getElementById('productGrid');
-        grid.innerHTML = products.map(p => `
-            <div class="product-card" onclick="addToCart(${p.id})">
-                <span class="tag" style="background:${p.color}"></span>
-                <div class="p-name">${p.name}</div>
-                <div class="p-price">$${p.price}</div>
-            </div>
-        `).join('');
+        let html = '';
+        
+        categories.forEach(cat => {
+            html += `<div class="category-title">${cat.title}</div>`;
+            cat.items.forEach(p => {
+                html += `
+                    <div class="product-card" onclick="addToCart(${p.id})">
+                        <span class="tag" style="background:${p.color}"></span>
+                        <div class="p-name">${p.name}</div>
+                        <div class="p-price">$${p.price}</div>
+                    </div>
+                `;
+            });
+        });
+        grid.innerHTML = html;
+    }
+
+    // 輔助：根據 ID 找商品
+    function findProduct(id) {
+        for (let cat of categories) {
+            for (let item of cat.items) {
+                if (item.id === id) return item;
+            }
+        }
+        return null;
     }
 
     function addToCart(id) {
-        const product = products.find(p => p.id === id);
+        const product = findProduct(id);
         cart[id] = cart[id] ? { ...product, qty: cart[id].qty + 1 } : { ...product, qty: 1 };
         updateCartUI();
     }
@@ -143,22 +187,18 @@
         updateCartUI();
     }
 
-    // 設定折扣
     function setDiscount(type, value) {
         discountType = type;
         discountValue = value;
-        
-        // 更新按鈕樣式
         document.querySelectorAll('.disc-btn').forEach(btn => {
             btn.classList.remove('active');
-            // 簡單判斷點擊的是哪個按鈕 (依賴文字或值，這裡用簡單的邏輯)
-            if(type === 'none' && btn.innerText.includes('無')) btn.classList.add('active');
+            if(type === 'none' && btn.innerText === '無') btn.classList.add('active');
             if(type === 'percent' && value === 0.95 && btn.innerText.includes('95')) btn.classList.add('active');
-            if(type === 'percent' && value === 0.9 && btn.innerText.includes('9折')) btn.classList.add('active');
+            if(type === 'percent' && value === 0.9 && btn.innerText ===('9折')) btn.classList.add('active');
+            if(type === 'percent' && value === 0.85 && btn.innerText.includes('85')) btn.classList.add('active');
             if(type === 'minus' && btn.innerText.includes('-50')) btn.classList.add('active');
         });
-
-        updateCartUI(); // 重新計算金額
+        updateCartUI();
     }
 
     function updateCartUI() {
@@ -166,10 +206,7 @@
         const priceDetails = document.getElementById('priceDetails');
         const items = Object.values(cart);
         
-        // 1. 計算原價
         let originalTotal = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
-        
-        // 2. 計算折扣與實收
         let finalTotal = originalTotal;
         let discountAmount = 0;
 
@@ -182,9 +219,8 @@
             discountAmount = discountValue;
         }
 
-        // 3. 渲染列表
         if (items.length === 0) {
-            list.innerHTML = '<div style="text-align:center; color:#999; margin-top:50px;">尚未選擇商品</div>';
+            list.innerHTML = '<div style="text-align:center; color:#999; margin-top:50px;">尚未點餐</div>';
             priceDetails.innerHTML = `<div class="total-row"><span>Total</span><span>$0</span></div>`;
             return;
         }
@@ -193,36 +229,21 @@
             <div class="cart-item">
                 <div class="item-info">
                     <span class="item-name">${item.name}</span>
-                    <span class="item-price">$${item.price} x ${item.qty}</span>
+                    <span class="item-spec">${item.type}</span>
                 </div>
-                <span class="item-qty">$${item.price * item.qty}</span>
-                <div class="btn-del" onclick="removeFromCart(${item.id})">✖</div>
+                <span class="item-qty">${item.qty}</span>
+                <div class="btn-del" onclick="removeFromCart(${item.id})">×</div>
             </div>
         `).join('');
 
-        // 4. 渲染金額區塊 (如果有折扣，顯示原價刪除線)
         if (discountType !== 'none' && originalTotal > 0) {
             priceDetails.innerHTML = `
-                <div class="price-row">
-                    <span>原價</span>
-                    <span class="strike">$${originalTotal}</span>
-                </div>
-                <div class="price-row">
-                    <span class="discount-text">折扣 (Discount)</span>
-                    <span class="discount-text">-$${discountAmount}</span>
-                </div>
-                <div class="total-row">
-                    <span>Total</span>
-                    <span>$${finalTotal}</span>
-                </div>
+                <div class="price-row"><span>原價</span><span class="strike">$${originalTotal}</span></div>
+                <div class="price-row"><span class="discount-text">折扣</span><span class="discount-text">-$${discountAmount}</span></div>
+                <div class="total-row"><span>Total</span><span>$${finalTotal}</span></div>
             `;
         } else {
-            priceDetails.innerHTML = `
-                <div class="total-row">
-                    <span>Total</span>
-                    <span>$${originalTotal}</span>
-                </div>
-            `;
+            priceDetails.innerHTML = `<div class="total-row"><span>Total</span><span>$${originalTotal}</span></div>`;
         }
     }
 
@@ -234,21 +255,19 @@
 
     function clearCart() {
         cart = {};
-        setDiscount('none', 0); // 重置折扣
+        setDiscount('none', 0);
         updateCartUI();
     }
 
     function submitOrder() {
         const items = Object.values(cart);
         if (items.length === 0) { alert("購物車是空的！"); return; }
-        if(GOOGLE_SCRIPT_URL.includes("您的")) { alert("請先設定 Script 網址！"); return; }
 
         const btn = document.getElementById('btnCheckout');
         const originalText = btn.innerText;
         btn.disabled = true;
         btn.innerText = "上傳中...";
 
-        // 重新計算最終數據
         let originalTotal = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
         let finalTotal = originalTotal;
         let discountAmount = 0;
@@ -262,7 +281,8 @@
             discountAmount = discountValue;
         }
 
-        const itemsString = items.map(i => `${i.name}x${i.qty}`).join(', ');
+        // 產生明細字串 (區分茶葉或飲品)
+        const itemsString = items.map(i => `[${i.type}]${i.name}x${i.qty}`).join(', ');
 
         const data = {
             items: itemsString,
@@ -270,7 +290,7 @@
             discount: discountAmount,
             finalTotal: finalTotal,
             method: currentMethod,
-            note: discountType !== 'none' ? `使用折扣: ${discountType}` : ''
+            note: discountType !== 'none' ? `折扣: ${discountType}` : ''
         };
 
         fetch(GOOGLE_SCRIPT_URL, {
@@ -286,7 +306,7 @@
             btn.innerText = originalText;
         })
         .catch(err => {
-            alert("❌ 錯誤：" + err);
+            alert("❌ 連線錯誤：" + err);
             btn.disabled = false;
             btn.innerText = originalText;
         });
@@ -295,6 +315,3 @@
 
 </body>
 </html>
-
-
-
