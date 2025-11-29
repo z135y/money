@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🍵 茶葉 POS (庫存管理版)</title>
+    <title>🍵 茶葉 POS (庫存即時版)</title>
     <style>
-        /* --- POS 樣式 --- */
         body { font-family: -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", sans-serif; margin: 0; background-color: #f2f2f7; display: flex; height: 100vh; overflow: hidden; }
-        .product-area { flex: 7; padding: 15px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 12px; align-content: start; }
         
+        /* 左側商品區 */
+        .product-area { flex: 7; padding: 15px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 12px; align-content: start; }
         .category-title { grid-column: 1 / -1; font-size: 14px; color: #888; font-weight: bold; margin-top: 15px; margin-bottom: 5px; border-left: 4px solid #2c3e50; padding-left: 8px; }
         .category-title:first-child { margin-top: 0; }
 
@@ -16,8 +16,8 @@
         .product-card:active { transform: scale(0.96); border-color: #27ae60; background: #e8f8f5; }
         
         /* 缺貨樣式 */
-        .product-card.out-of-stock { opacity: 0.5; filter: grayscale(100%); pointer-events: none; background: #eee; }
-        .product-card.out-of-stock::after { content: "補貨中"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: red; font-weight: bold; border: 2px solid red; padding: 2px 5px; transform: translate(-50%, -50%) rotate(-10deg); font-size: 14px; }
+        .product-card.out-of-stock { opacity: 0.6; filter: grayscale(100%); pointer-events: none; background: #eee; }
+        .product-card.out-of-stock::after { content: "補貨中"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-10deg); color: #c0392b; font-weight: bold; border: 2px solid #c0392b; padding: 2px 8px; font-size: 14px; border-radius: 4px; background: rgba(255,255,255,0.8); }
 
         .p-name { font-weight: bold; font-size: 15px; color: #2c3e50; margin: 5px 0; line-height: 1.3; }
         .p-price { color: #e67e22; font-weight: bold; font-size: 14px; }
@@ -27,8 +27,8 @@
         /* 右側結帳區 */
         .sidebar { flex: 3; background: white; display: flex; flex-direction: column; border-left: 1px solid #ddd; box-shadow: -5px 0 15px rgba(0,0,0,0.05); min-width: 320px; }
         .cart-header { padding: 15px; background: #2c3e50; color: white; font-weight: bold; text-align: center; font-size: 18px; display: flex; justify-content: space-between; align-items: center; }
-        .btn-refresh { background: none; border: none; color: #aaa; cursor: pointer; font-size: 14px; }
-        .btn-refresh:hover { color: white; }
+        .btn-refresh { background: none; border: none; color: #aaa; cursor: pointer; font-size: 16px; transition: 0.3s; }
+        .btn-refresh:hover { color: white; transform: rotate(180deg); }
 
         .cart-list { flex: 1; overflow-y: auto; padding: 10px; }
         .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; }
@@ -37,6 +37,7 @@
         .item-qty { font-weight: bold; color: #fff; background: #2c3e50; padding: 2px 8px; border-radius: 10px; font-size: 13px; }
         .btn-del { color: #e74c3c; cursor: pointer; padding: 5px; font-size: 18px; margin-left: 10px; }
 
+        /* 折扣與結帳 */
         .discount-section { padding: 10px 15px; background: #fff; border-top: 1px dashed #ccc; }
         .discount-row { display: flex; gap: 5px; flex-wrap: wrap; }
         .disc-btn { flex: 1; min-width: 70px; padding: 8px 0; font-size: 12px; border: 1px solid #ddd; background: #f9f9f9; border-radius: 6px; cursor: pointer; color: #555; font-weight: bold; }
@@ -46,6 +47,7 @@
         .total-row { display: flex; justify-content: space-between; align-items: center; font-size: 26px; font-weight: 800; color: #2c3e50; margin-top: 5px; margin-bottom: 10px; }
         .price-row { display: flex; justify-content: space-between; font-size: 13px; color: #666; margin-bottom: 3px; }
         .strike { text-decoration: line-through; color: #999; }
+        .discount-text { color: #e74c3c; font-weight: bold; }
         
         .payment-methods { display: flex; gap: 8px; margin-bottom: 10px; }
         .pay-btn { flex: 1; padding: 10px 0; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; text-align: center; font-weight: bold; font-size: 14px; background: white; }
@@ -68,7 +70,7 @@
         <button class="btn-refresh" onclick="fetchStock()" title="重整庫存">🔄</button>
     </div>
     <div class="cart-list" id="cartList">
-        <div style="text-align:center; color:#999; margin-top:50px;">載入庫存中...</div>
+        <div style="text-align:center; color:#999; margin-top:50px;">載入中...</div>
     </div>
 
     <div class="discount-section">
@@ -102,7 +104,7 @@
 
 <script>
     // ==========================================
-    // ⚠️ 請填入您的 Script 網址
+    // ⚠️ 請在此填入您的 Google Apps Script 網址
     // ==========================================
     const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz9s2NUQupy7plDN-sRqQdbULRV5T5LE8xE4SYYUE_MR2vqT2O-bt1R5cwnOvhaYS5MYA/exec"; 
     // ==========================================
@@ -143,4 +145,238 @@
     let discountValue = 0;
 
     // 啟動時先抓庫存
-    window.onload = ()
+    window.onload = () => {
+        fetchStock();
+    };
+
+    // 從 Google Sheet 抓取庫存
+    function fetchStock() {
+        const grid = document.getElementById('cartList');
+        // 如果網址還沒填，先畫出預設商品
+        if(GOOGLE_SCRIPT_URL.includes("您的")) { 
+            grid.innerHTML = '<div style="text-align:center; color:#999; margin-top:50px;">⚠️ 未設定後端網址<br>目前顯示預設庫存</div>';
+            renderProducts(); 
+            return; 
+        }
+
+        // 顯示載入中
+        // 這裡不直接清空 cartList，避免使用者正在點餐時重整
+        const checkoutBtn = document.getElementById('btnCheckout');
+        checkoutBtn.innerText = "庫存同步中...";
+        checkoutBtn.disabled = true;
+
+        fetch(GOOGLE_SCRIPT_URL)
+        .then(res => res.json())
+        .then(stockData => {
+            // 更新本地庫存數據
+            categories.forEach(cat => {
+                cat.items.forEach(item => {
+                    if (stockData[item.id] !== undefined) {
+                        item.stock = stockData[item.id];
+                    }
+                });
+            });
+            renderProducts(); // 重新渲染商品區
+            updateCartUI();   // 更新購物車顯示
+            checkoutBtn.innerText = "結帳收款";
+            checkoutBtn.disabled = false;
+        })
+        .catch(err => {
+            console.error("Stock fetch failed", err);
+            grid.innerHTML = '<div style="text-align:center; color:red; margin-top:50px;">⚠️ 庫存同步失敗<br>請檢查網路或 Script</div>';
+            renderProducts();
+        });
+    }
+
+    function renderProducts() {
+        const grid = document.getElementById('productGrid');
+        let html = '';
+        
+        categories.forEach(cat => {
+            html += `<div class="category-title">${cat.title}</div>`;
+            cat.items.forEach(p => {
+                // 判斷庫存
+                let isOutOfStock = p.stock <= 0;
+                let stockClass = isOutOfStock ? 'product-card out-of-stock' : 'product-card';
+                let stockText = isOutOfStock ? '補貨中' : `庫存: ${p.stock}`;
+                let onClick = isOutOfStock ? '' : `onclick="addToCart(${p.id})"`;
+
+                html += `
+                    <div class="${stockClass}" ${onClick}>
+                        <div class="tag" style="background:${p.color}"></div>
+                        <div class="p-name">${p.name}</div>
+                        <div class="p-price">$${p.price}</div>
+                        <div class="p-stock">${stockText}</div>
+                    </div>
+                `;
+            });
+        });
+        grid.innerHTML = html;
+    }
+
+    function findProduct(id) {
+        for (let cat of categories) {
+            for (let item of cat.items) {
+                if (item.id === id) return item;
+            }
+        }
+        return null;
+    }
+
+    function addToCart(id) {
+        const product = findProduct(id);
+        
+        // 檢查庫存 (如果是連線模式)
+        if(!GOOGLE_SCRIPT_URL.includes("您的")) {
+            let currentQty = cart[id] ? cart[id].qty : 0;
+            if (currentQty + 1 > product.stock) {
+                alert(`❌ 庫存不足！\n目前庫存僅剩：${product.stock}`);
+                return;
+            }
+        }
+
+        cart[id] = cart[id] ? { ...product, qty: cart[id].qty + 1 } : { ...product, qty: 1 };
+        updateCartUI();
+    }
+
+    function removeFromCart(id) {
+        if (cart[id]) {
+            cart[id].qty -= 1;
+            if (cart[id].qty <= 0) delete cart[id];
+        }
+        updateCartUI();
+    }
+
+    // (折扣、介面更新、結帳邏輯與之前相同，整合在此)
+    function setDiscount(type, value) {
+        discountType = type;
+        discountValue = value;
+        document.querySelectorAll('.disc-btn').forEach(btn => {
+            btn.classList.remove('active');
+            if(type === 'none' && btn.innerText === '無') btn.classList.add('active');
+            if(type === 'percent' && value === 0.95 && btn.innerText.includes('95')) btn.classList.add('active');
+            if(type === 'percent' && value === 0.9 && btn.innerText.includes('9折')) btn.classList.add('active');
+            if(type === 'percent' && value === 0.85 && btn.innerText.includes('85')) btn.classList.add('active');
+            if(type === 'minus' && btn.innerText.includes('-50')) btn.classList.add('active');
+        });
+        updateCartUI();
+    }
+
+    function updateCartUI() {
+        const list = document.getElementById('cartList');
+        const priceDetails = document.getElementById('priceDetails');
+        const items = Object.values(cart);
+        
+        let originalTotal = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
+        let finalTotal = originalTotal;
+        let discountAmount = 0;
+
+        if (discountType === 'percent') {
+            finalTotal = Math.round(originalTotal * discountValue);
+            discountAmount = originalTotal - finalTotal;
+        } else if (discountType === 'minus') {
+            finalTotal = originalTotal - discountValue;
+            if(finalTotal < 0) finalTotal = 0;
+            discountAmount = discountValue;
+        }
+
+        if (items.length === 0) {
+            list.innerHTML = '<div style="text-align:center; color:#999; margin-top:50px;">尚未點餐</div>';
+            priceDetails.innerHTML = `<div class="total-row"><span>Total</span><span>$0</span></div>`;
+            return;
+        }
+
+        list.innerHTML = items.map(item => `
+            <div class="cart-item">
+                <div class="item-info">
+                    <span class="item-name">${item.name}</span>
+                    <span class="item-spec">${item.type}</span>
+                </div>
+                <span class="item-qty">${item.qty}</span>
+                <div class="btn-del" onclick="removeFromCart(${item.id})">×</div>
+            </div>
+        `).join('');
+
+        if (discountType !== 'none' && originalTotal > 0) {
+            priceDetails.innerHTML = `
+                <div class="price-row"><span>原價</span><span class="strike">$${originalTotal}</span></div>
+                <div class="price-row"><span class="discount-text">折扣</span><span class="discount-text">-$${discountAmount}</span></div>
+                <div class="total-row"><span>Total</span><span>$${finalTotal}</span></div>
+            `;
+        } else {
+            priceDetails.innerHTML = `<div class="total-row"><span>Total</span><span>$${originalTotal}</span></div>`;
+        }
+    }
+
+    function setMethod(btn, method) {
+        document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentMethod = method;
+    }
+
+    function clearCart() {
+        cart = {};
+        setDiscount('none', 0);
+        updateCartUI();
+    }
+
+    function submitOrder() {
+        const items = Object.values(cart);
+        if (items.length === 0) { alert("購物車是空的！"); return; }
+
+        if(GOOGLE_SCRIPT_URL.includes("您的")) { alert("請設定 Script 網址！"); return; }
+
+        const btn = document.getElementById('btnCheckout');
+        const originalText = btn.innerText;
+        btn.disabled = true;
+        btn.innerText = "扣庫存中...";
+
+        const cartData = items.map(i => ({ id: i.id, qty: i.qty }));
+        let originalTotal = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
+        let finalTotal = originalTotal;
+        let discountAmount = 0;
+
+        if (discountType === 'percent') {
+            finalTotal = Math.round(originalTotal * discountValue);
+            discountAmount = originalTotal - finalTotal;
+        } else if (discountType === 'minus') {
+            finalTotal = originalTotal - discountValue;
+            if(finalTotal < 0) finalTotal = 0;
+            discountAmount = discountValue;
+        }
+
+        const itemsString = items.map(i => `[${i.type}]${i.name}x${i.qty}`).join(', ');
+
+        const data = {
+            itemsString: itemsString,
+            cartItems: cartData,
+            originalTotal: originalTotal,
+            discount: discountAmount,
+            finalTotal: finalTotal,
+            method: currentMethod,
+            note: discountType !== 'none' ? `折扣: ${discountType}` : ''
+        };
+
+        fetch(GOOGLE_SCRIPT_URL, {
+            method: "POST",
+            mode: "no-cors",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        })
+        .then(() => {
+            alert(`✅ 結帳完成！\n實收：$${finalTotal}`);
+            clearCart();
+            fetchStock(); // 重抓庫存
+            btn.disabled = false;
+            btn.innerText = originalText;
+        })
+        .catch(err => {
+            alert("❌ 連線錯誤：" + err);
+            btn.disabled = false;
+            btn.innerText = originalText;
+        });
+    }
+</script>
+
+</body>
+</html>
