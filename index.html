@@ -106,7 +106,7 @@
     // ==========================================
     // ⚠️ 請在此填入您的 Google Apps Script 網址
     // ==========================================
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz9s2NUQupy7plDN-sRqQdbULRV5T5LE8xE4SYYUE_MR2vqT2O-bt1R5cwnOvhaYS5MYA/exec"; 
+    const GOOGLE_SCRIPT_URL = "您的_POS_SCRIPT_網址_貼在這裡"; 
     // ==========================================
 
     const categories = [
@@ -117,6 +117,7 @@
                 { id: 2, name: '蜜香紅茶', price: 300, color: '#e74c3c', type: '茶葉', stock: 0 },
                 { id: 3, name: '紅烏龍', price: 450, color: '#d35400', type: '茶葉', stock: 0 },
                 { id: 4, name: '凍頂烏龍', price: 350, color: '#f1c40f', type: '茶葉', stock: 0 },
+                { id: 13, name: '焙香茶穗', price: 100, color: '#8d6e63', type: '茶葉', stock: 0 }, // ✨ 新增商品
                 { id: 5, name: '茶山漫遊禮盒', price: 1100, color: '#8e44ad', type: '禮盒', stock: 0 },
                 { id: 6, name: '盒裝茶包(10入)', price: 250, color: '#3498db', type: '茶包', stock: 0 }
             ]
@@ -160,223 +161,8 @@
         }
 
         // 顯示載入中
-        // 這裡不直接清空 cartList，避免使用者正在點餐時重整
         const checkoutBtn = document.getElementById('btnCheckout');
         checkoutBtn.innerText = "庫存同步中...";
         checkoutBtn.disabled = true;
 
-        fetch(GOOGLE_SCRIPT_URL)
-        .then(res => res.json())
-        .then(stockData => {
-            // 更新本地庫存數據
-            categories.forEach(cat => {
-                cat.items.forEach(item => {
-                    if (stockData[item.id] !== undefined) {
-                        item.stock = stockData[item.id];
-                    }
-                });
-            });
-            renderProducts(); // 重新渲染商品區
-            updateCartUI();   // 更新購物車顯示
-            checkoutBtn.innerText = "結帳收款";
-            checkoutBtn.disabled = false;
-        })
-        .catch(err => {
-            console.error("Stock fetch failed", err);
-            grid.innerHTML = '<div style="text-align:center; color:red; margin-top:50px;">⚠️ 庫存同步失敗<br>請檢查網路或 Script</div>';
-            renderProducts();
-        });
-    }
-
-    function renderProducts() {
-        const grid = document.getElementById('productGrid');
-        let html = '';
-        
-        categories.forEach(cat => {
-            html += `<div class="category-title">${cat.title}</div>`;
-            cat.items.forEach(p => {
-                // 判斷庫存
-                let isOutOfStock = p.stock <= 0;
-                let stockClass = isOutOfStock ? 'product-card out-of-stock' : 'product-card';
-                let stockText = isOutOfStock ? '補貨中' : `庫存: ${p.stock}`;
-                let onClick = isOutOfStock ? '' : `onclick="addToCart(${p.id})"`;
-
-                html += `
-                    <div class="${stockClass}" ${onClick}>
-                        <div class="tag" style="background:${p.color}"></div>
-                        <div class="p-name">${p.name}</div>
-                        <div class="p-price">$${p.price}</div>
-                        <div class="p-stock">${stockText}</div>
-                    </div>
-                `;
-            });
-        });
-        grid.innerHTML = html;
-    }
-
-    function findProduct(id) {
-        for (let cat of categories) {
-            for (let item of cat.items) {
-                if (item.id === id) return item;
-            }
-        }
-        return null;
-    }
-
-    function addToCart(id) {
-        const product = findProduct(id);
-        
-        // 檢查庫存 (如果是連線模式)
-        if(!GOOGLE_SCRIPT_URL.includes("您的")) {
-            let currentQty = cart[id] ? cart[id].qty : 0;
-            if (currentQty + 1 > product.stock) {
-                alert(`❌ 庫存不足！\n目前庫存僅剩：${product.stock}`);
-                return;
-            }
-        }
-
-        cart[id] = cart[id] ? { ...product, qty: cart[id].qty + 1 } : { ...product, qty: 1 };
-        updateCartUI();
-    }
-
-    function removeFromCart(id) {
-        if (cart[id]) {
-            cart[id].qty -= 1;
-            if (cart[id].qty <= 0) delete cart[id];
-        }
-        updateCartUI();
-    }
-
-    // (折扣、介面更新、結帳邏輯與之前相同，整合在此)
-    function setDiscount(type, value) {
-        discountType = type;
-        discountValue = value;
-        document.querySelectorAll('.disc-btn').forEach(btn => {
-            btn.classList.remove('active');
-            if(type === 'none' && btn.innerText === '無') btn.classList.add('active');
-            if(type === 'percent' && value === 0.95 && btn.innerText.includes('95')) btn.classList.add('active');
-            if(type === 'percent' && value === 0.9 && btn.innerText.includes('9折')) btn.classList.add('active');
-            if(type === 'percent' && value === 0.85 && btn.innerText.includes('85')) btn.classList.add('active');
-            if(type === 'minus' && btn.innerText.includes('-50')) btn.classList.add('active');
-        });
-        updateCartUI();
-    }
-
-    function updateCartUI() {
-        const list = document.getElementById('cartList');
-        const priceDetails = document.getElementById('priceDetails');
-        const items = Object.values(cart);
-        
-        let originalTotal = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
-        let finalTotal = originalTotal;
-        let discountAmount = 0;
-
-        if (discountType === 'percent') {
-            finalTotal = Math.round(originalTotal * discountValue);
-            discountAmount = originalTotal - finalTotal;
-        } else if (discountType === 'minus') {
-            finalTotal = originalTotal - discountValue;
-            if(finalTotal < 0) finalTotal = 0;
-            discountAmount = discountValue;
-        }
-
-        if (items.length === 0) {
-            list.innerHTML = '<div style="text-align:center; color:#999; margin-top:50px;">尚未點餐</div>';
-            priceDetails.innerHTML = `<div class="total-row"><span>Total</span><span>$0</span></div>`;
-            return;
-        }
-
-        list.innerHTML = items.map(item => `
-            <div class="cart-item">
-                <div class="item-info">
-                    <span class="item-name">${item.name}</span>
-                    <span class="item-spec">${item.type}</span>
-                </div>
-                <span class="item-qty">${item.qty}</span>
-                <div class="btn-del" onclick="removeFromCart(${item.id})">×</div>
-            </div>
-        `).join('');
-
-        if (discountType !== 'none' && originalTotal > 0) {
-            priceDetails.innerHTML = `
-                <div class="price-row"><span>原價</span><span class="strike">$${originalTotal}</span></div>
-                <div class="price-row"><span class="discount-text">折扣</span><span class="discount-text">-$${discountAmount}</span></div>
-                <div class="total-row"><span>Total</span><span>$${finalTotal}</span></div>
-            `;
-        } else {
-            priceDetails.innerHTML = `<div class="total-row"><span>Total</span><span>$${originalTotal}</span></div>`;
-        }
-    }
-
-    function setMethod(btn, method) {
-        document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentMethod = method;
-    }
-
-    function clearCart() {
-        cart = {};
-        setDiscount('none', 0);
-        updateCartUI();
-    }
-
-    function submitOrder() {
-        const items = Object.values(cart);
-        if (items.length === 0) { alert("購物車是空的！"); return; }
-
-        if(GOOGLE_SCRIPT_URL.includes("您的")) { alert("請設定 Script 網址！"); return; }
-
-        const btn = document.getElementById('btnCheckout');
-        const originalText = btn.innerText;
-        btn.disabled = true;
-        btn.innerText = "扣庫存中...";
-
-        const cartData = items.map(i => ({ id: i.id, qty: i.qty }));
-        let originalTotal = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
-        let finalTotal = originalTotal;
-        let discountAmount = 0;
-
-        if (discountType === 'percent') {
-            finalTotal = Math.round(originalTotal * discountValue);
-            discountAmount = originalTotal - finalTotal;
-        } else if (discountType === 'minus') {
-            finalTotal = originalTotal - discountValue;
-            if(finalTotal < 0) finalTotal = 0;
-            discountAmount = discountValue;
-        }
-
-        const itemsString = items.map(i => `[${i.type}]${i.name}x${i.qty}`).join(', ');
-
-        const data = {
-            itemsString: itemsString,
-            cartItems: cartData,
-            originalTotal: originalTotal,
-            discount: discountAmount,
-            finalTotal: finalTotal,
-            method: currentMethod,
-            note: discountType !== 'none' ? `折扣: ${discountType}` : ''
-        };
-
-        fetch(GOOGLE_SCRIPT_URL, {
-            method: "POST",
-            mode: "no-cors",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data)
-        })
-        .then(() => {
-            alert(`✅ 結帳完成！\n實收：$${finalTotal}`);
-            clearCart();
-            fetchStock(); // 重抓庫存
-            btn.disabled = false;
-            btn.innerText = originalText;
-        })
-        .catch(err => {
-            alert("❌ 連線錯誤：" + err);
-            btn.disabled = false;
-            btn.innerText = originalText;
-        });
-    }
-</script>
-
-</body>
-</html>
+        fetch(GOOGLE_SCRIPT_URL
