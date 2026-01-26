@@ -3,384 +3,332 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🍵 茶葉 POS (庫存即時版)</title>
+    <title>🍵 茶葉 POS - USB 硬體整合版</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", sans-serif; margin: 0; background-color: #f2f2f7; display: flex; height: 100vh; overflow: hidden; }
+        :root { 
+            --primary: #2c3e50; --success: #27ae60; --warning: #f39c12; 
+            --danger: #e74c3c; --line-green: #00c300; --bg: #f4f7f6;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; background-color: var(--bg); display: flex; height: 100vh; overflow: hidden; }
         
-        /* 左側商品區 */
-        .product-area { flex: 7; padding: 15px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 12px; align-content: start; }
-        .category-title { grid-column: 1 / -1; font-size: 14px; color: #888; font-weight: bold; margin-top: 15px; margin-bottom: 5px; border-left: 4px solid #2c3e50; padding-left: 8px; }
-        .category-title:first-child { margin-top: 0; }
+        /* Layout */
+        .product-area { flex: 7; padding: 20px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 15px; }
+        .sidebar { flex: 3; background: white; display: flex; flex-direction: column; border-left: 1px solid #dcdde1; min-width: 360px; }
 
-        .product-card { background: white; border-radius: 12px; padding: 10px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); cursor: pointer; transition: 0.1s; border: 2px solid transparent; user-select: none; position: relative; }
-        .product-card:active { transform: scale(0.96); border-color: #27ae60; background: #e8f8f5; }
+        /* Hardware Status Header */
+        .hardware-bar { background: #34495e; color: white; padding: 10px 15px; font-size: 12px; display: flex; gap: 15px; }
+        .hw-item { display: flex; align-items: center; gap: 5px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #95a5a6; }
+        .status-dot.active { background: var(--success); box-shadow: 0 0 5px var(--success); }
+
+        /* Product Cards */
+        .category-header { grid-column: 1 / -1; font-size: 13px; color: #7f8c8d; font-weight: bold; margin-top: 10px; }
+        .product-card { background: white; border-radius: 12px; padding: 15px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); cursor: pointer; border: 2px solid transparent; }
+        .product-card:active { background: #f9f9f9; }
+        .p-name { font-weight: bold; display: block; }
+        .p-code { font-size: 10px; color: #bdc3c7; }
+
+        /* Sidebar Flow */
+        .cart-list { flex: 1; overflow-y: auto; padding: 10px; border-bottom: 1px solid #eee; }
+        .cart-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #f5f6fa; font-size: 14px; }
         
-        /* 缺貨樣式 */
-        .product-card.out-of-stock { opacity: 0.6; filter: grayscale(100%); pointer-events: none; background: #eee; }
-        .product-card.out-of-stock::after { content: "補貨中"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-10deg); color: #c0392b; font-weight: bold; border: 2px solid #c0392b; padding: 2px 8px; font-size: 14px; border-radius: 4px; background: rgba(255,255,255,0.8); }
+        .control-panel { padding: 15px; border-top: 1px solid #eee; }
+        .btn-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-bottom: 10px; }
+        .opt-btn { padding: 8px 0; font-size: 11px; border: 1px solid #eee; border-radius: 6px; cursor: pointer; background: #f9f9f9; }
+        .opt-btn.active { background: var(--primary); color: white; }
 
-        .p-name { font-weight: bold; font-size: 15px; color: #2c3e50; margin: 5px 0; line-height: 1.3; }
-        .p-price { color: #e67e22; font-weight: bold; font-size: 14px; }
-        .p-stock { font-size: 11px; color: #888; margin-top: 4px; background: #f0f0f0; padding: 2px 6px; border-radius: 4px; display: inline-block; }
-        .tag { width: 25px; height: 4px; border-radius: 2px; margin-bottom: 5px; margin: 0 auto; }
+        .total-box { padding: 20px; background: #fafafa; border-top: 1px solid #eee; }
+        .total-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .btn-pay { width: 100%; padding: 15px; background: var(--success); color: white; border: none; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; }
 
-        /* 右側結帳區 */
-        .sidebar { flex: 3; background: white; display: flex; flex-direction: column; border-left: 1px solid #ddd; box-shadow: -5px 0 15px rgba(0,0,0,0.05); min-width: 320px; }
-        .cart-header { padding: 15px; background: #2c3e50; color: white; font-weight: bold; text-align: center; font-size: 18px; display: flex; justify-content: space-between; align-items: center; }
-        .btn-refresh { background: none; border: none; color: #aaa; cursor: pointer; font-size: 16px; transition: 0.3s; }
-        .btn-refresh:hover { color: white; transform: rotate(180deg); }
+        /* USB Backup Section */
+        .usb-backup { padding: 10px 15px; background: #ebf2f9; font-size: 11px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #d6e4f0; }
 
-        .cart-list { flex: 1; overflow-y: auto; padding: 10px; }
-        .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; }
-        .item-info { flex: 1; }
-        .item-name { font-size: 14px; font-weight: bold; display: block; }
-        .item-qty { font-weight: bold; color: #fff; background: #2c3e50; padding: 2px 8px; border-radius: 10px; font-size: 13px; }
-        .btn-del { color: #e74c3c; cursor: pointer; padding: 5px; font-size: 18px; margin-left: 10px; }
-
-        /* 折扣與結帳 */
-        .discount-section { padding: 10px 15px; background: #fff; border-top: 1px dashed #ccc; }
-        .discount-row { display: flex; gap: 5px; flex-wrap: wrap; }
-        .disc-btn { flex: 1; min-width: 70px; padding: 8px 0; font-size: 12px; border: 1px solid #ddd; background: #f9f9f9; border-radius: 6px; cursor: pointer; color: #555; font-weight: bold; }
-        .disc-btn.active { background: #e74c3c; color: white; border-color: #e74c3c; }
-
-        .checkout-section { padding: 15px; background: #f8f9fa; border-top: 1px solid #ddd; }
-        .total-row { display: flex; justify-content: space-between; align-items: center; font-size: 26px; font-weight: 800; color: #2c3e50; margin-top: 5px; margin-bottom: 10px; }
-        .price-row { display: flex; justify-content: space-between; font-size: 13px; color: #666; margin-bottom: 3px; }
-        .strike { text-decoration: line-through; color: #999; }
-        .discount-text { color: #e74c3c; font-weight: bold; }
+        /* Modal */
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-body { background: white; padding: 25px; border-radius: 20px; text-align: center; width: 300px; }
         
-        .payment-methods { display: flex; gap: 8px; margin-bottom: 10px; }
-        .pay-btn { flex: 1; padding: 10px 0; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; text-align: center; font-weight: bold; font-size: 14px; background: white; }
-        .pay-btn.active { background: #2c3e50; color: white; border-color: #2c3e50; }
-
-        .btn-checkout { width: 100%; padding: 12px; background: #27ae60; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; }
-        .btn-checkout:disabled { background: #95a5a6; cursor: not-allowed; }
-        .btn-clear { width: 100%; margin-top: 8px; padding: 8px; background: transparent; border: 1px solid #e74c3c; color: #e74c3c; border-radius: 8px; cursor: pointer; font-size: 14px; }
-
-        @media (max-width: 768px) { body { flex-direction: column; } .product-area { flex: 1.5; } .sidebar { flex: 1; } }
+        #toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); padding: 10px 20px; border-radius: 20px; color: white; display: none; z-index: 2000; }
     </style>
 </head>
 <body>
 
-<div class="product-area" id="productGrid"></div>
+<div id="toast"></div>
 
-<div class="sidebar">
-    <div class="cart-header">
-        <span>🛒 購物車</span>
-        <button class="btn-refresh" onclick="fetchStock()" title="重整庫存">🔄</button>
-    </div>
-    <div class="cart-list" id="cartList">
-        <div style="text-align:center; color:#999; margin-top:50px;">載入中...</div>
-    </div>
-
-    <div class="discount-section">
-        <div class="discount-row">
-            <button class="disc-btn active" onclick="setDiscount('none', 0)">無</button>
-            <button class="disc-btn" onclick="setDiscount('percent', 0.95)">95折</button>
-            <button class="disc-btn" onclick="setDiscount('percent', 0.9)">9折</button>
-            <button class="disc-btn" onclick="setDiscount('percent', 0.85)">85折</button>
-            <button class="disc-btn" onclick="setDiscount('minus', 50)">-50</button>
-             <button class="disc-btn" onclick="setDiscount('minus', 10)">-10</button>
+<div class="modal" id="payModal">
+    <div class="modal-body">
+        <h3 id="mTitle">支付確認</h3>
+        <div id="qrPlaceholder" style="width:180px; height:180px; background:#f0f0f0; margin:15px auto;">
+            <img id="mQR" src="" style="width:100%;">
         </div>
+        <div id="mPrice" style="font-size: 24px; font-weight: 900; color: var(--danger);">$0</div>
+        <button class="btn-pay" onclick="finishOrder()">確認收到款項</button>
+        <button onclick="closeModal()" style="background:none; border:none; color:#999; margin-top:10px; text-decoration:underline; cursor:pointer;">取消</button>
+    </div>
+</div>
+
+<div style="display:flex; flex-direction:column; width:100%;">
+    <!-- USB 硬體狀態列 -->
+    <div class="hardware-bar">
+        <div class="hw-item">
+            <div class="status-dot active" id="scannerStatus"></div>
+            <span>USB 掃描槍 (已就緒)</span>
+        </div>
+        <div class="hw-item" onclick="connectPrinter()" style="cursor:pointer;">
+            <div class="status-dot" id="printerStatus"></div>
+            <span>USB 印表機 (點擊連接)</span>
+        </div>
+        <div id="netStatus" style="margin-left:auto;">連線狀態: 🟢 線上</div>
     </div>
 
-    <div class="checkout-section">
-        <div id="priceDetails">
-            <div class="total-row">
-                <span>Total</span>
-                <span id="finalAmount">$0</span>
+    <div style="display:flex; flex:1; overflow:hidden;">
+        <div class="product-area" id="productGrid"></div>
+
+        <div class="sidebar">
+            <div class="cart-list" id="cartItems">
+                <div style="text-align:center; color:#ccc; margin-top:50px;">請點選商品或掃描條碼</div>
+            </div>
+
+            <div class="control-panel">
+                <span class="step-label">顧客輪廓</span>
+                <div class="btn-grid" id="profGrid">
+                    <button class="opt-btn active" onclick="setOpt('prof', '未知', this)">未知</button>
+                    <button class="opt-btn" onclick="setOpt('prof', '男', this)">男</button>
+                    <button class="opt-btn" onclick="setOpt('prof', '女', this)">女</button>
+                    <button class="opt-btn" onclick="setOpt('prof', '50+', this)">50+</button>
+                </div>
+
+                <span class="step-label">支付方式</span>
+                <div class="btn-grid" id="methodGrid">
+                    <button class="opt-btn active" onclick="setOpt('meth', '現金', this)">現金</button>
+                    <button class="opt-btn" onclick="setOpt('meth', 'LinePay', this)">Line</button>
+                    <button class="opt-btn" onclick="setOpt('meth', '轉帳', this)">轉帳</button>
+                    <button class="opt-btn" onclick="setOpt('meth', '刷卡', this)">刷卡</button>
+                </div>
+            </div>
+
+            <div class="usb-backup">
+                <span>備份: 離線佇列 (<span id="queueSize">0</span>)</span>
+                <button onclick="exportToUSB()" style="font-size:10px; border:1px solid #3498db; background:white; color:#3498db; border-radius:4px; cursor:pointer;">匯出至 USB</button>
+            </div>
+
+            <div class="total-box">
+                <div class="total-row">
+                    <span style="color:#7f8c8d;">應收總計</span>
+                    <span style="font-size:32px; font-weight:900;" id="finalTotal">$0</span>
+                </div>
+                <button class="btn-pay" onclick="handlePay()">結帳並打印</button>
             </div>
         </div>
-
-        <div class="payment-methods">
-            <div class="pay-btn active" onclick="setMethod(this, '現金')">💵 現金</div>
-            <div class="pay-btn" onclick="setMethod(this, 'LinePay')">📲 LinePay</div>
-            <div class="pay-btn" onclick="setMethod(this, '信用卡')">💳 刷卡</div>
-        </div>
-
-        <button class="btn-checkout" id="btnCheckout" onclick="submitOrder()">結帳收款</button>
-        <button class="btn-clear" onclick="clearCart()">清空重來</button>
     </div>
 </div>
 
 <script>
-    // ==========================================
-    // ✅ 已填入您的 POS 專用 Script 網址
-    // ==========================================
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz9s2NUQupy7plDN-sRqQdbULRV5T5LE8xE4SYYUE_MR2vqT2O-bt1R5cwnOvhaYS5MYA/exec"; 
-    // ==========================================
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz9s2NUQupy7plDN-sRqQdbULRV5T5LE8xE4SYYUE_MR2vqT2O-bt1R5cwnOvhaYS5MYA/exec";
 
-    const categories = [
-        {
-            title: "📦 茶葉與禮盒 (Retail)",
-            items: [
-                { id: 1, name: '文山包種茶', price: 300, color: '#27ae60', type: '茶葉', stock: 0 },
-                { id: 2, name: '蜜香紅茶', price: 350, color: '#e74c3c', type: '茶葉', stock: 0 },
-                { id: 3, name: '紅烏龍', price: 450, color: '#d35400', type: '茶葉', stock: 0 },
-                { id: 4, name: '凍頂烏龍', price: 350, color: '#f1c40f', type: '茶葉', stock: 0 },
-                { id: 13, name: '焙香茶穗', price: 100, color: '#8d6e63', type: '茶葉', stock: 0 }, // ✨ 新增商品
-                { id: 5, name: '茶山漫遊禮盒', price: 1100, color: '#8e44ad', type: '禮盒', stock: 0 },
-                { id: 14, name: '銀質包種禮盒', price: 1200, color: '#8e44ad', type: '禮盒', stock: 0 },
-                { id: 6, name: '盒裝茶包(10入)', price: 250, color: '#3498db', type: '茶包', stock: 0 }
-            ]
-        },
-        {
-            title: "🥤 現萃茶飲 (To Go)",
-            items: [
-                { id: 7, name: '現萃-文山包種', price: 60, color: '#2ecc71', type: '飲品', stock: 0 },
-                { id: 8, name: '現萃-蜜香紅茶', price: 60, color: '#ff7675', type: '飲品', stock: 0 },
-                { id: 11, name: '冷泡茶 (瓶)', price: 80, color: '#1abc9c', type: '飲品', stock: 0 }
-            ]
-        },
-        {
-            title: "🛍️ 其他",
-            items: [
-                { id: 12, name: '提袋/包材', price: 10, color: '#95a5a6', type: '雜項', stock: 0 }
-            ]
-        }
+    // 產品數據，增加 barcode 欄位用於 USB 掃描槍識別
+    const PRODUCTS = [
+        { id: 1, barcode: "1001", cat: "📦 茶葉", name: '文山包種茶', price: 300, stock: 100 },
+        { id: 2, barcode: "1002", cat: "📦 茶葉", name: '蜜香紅茶', price: 350, stock: 100 },
+        { id: 3, barcode: "1003", cat: "📦 茶葉", name: '紅烏龍', price: 450, stock: 100 },
+        { id: 7, barcode: "2001", cat: "🥤 飲品", name: '現萃-包種', price: 60, stock: 999 },
+        { id: 11, barcode: "2002", cat: "🥤 飲品", name: '冷泡茶 (瓶)', price: 80, stock: 100 }
     ];
 
     let cart = {};
-    let currentMethod = '現金';
-    let discountType = 'none';
-    let discountValue = 0;
+    let config = { prof: '未知', meth: '現金' };
+    let syncQueue = [];
+    let barcodeBuffer = ""; // 用於緩存掃描槍輸入
 
-    // 啟動時先抓庫存
     window.onload = () => {
-        fetchStock();
+        loadQueue();
+        renderProducts();
+        setupBarcodeScanner();
+        initNetworkMonitor();
     };
 
-    // 從 Google Sheet 抓取庫存
-    function fetchStock() {
-        const grid = document.getElementById('cartList');
-        // 如果網址還沒填，先畫出預設商品
-        if(GOOGLE_SCRIPT_URL.includes("您的")) { 
-            grid.innerHTML = '<div style="text-align:center; color:#999; margin-top:50px;">⚠️ 未設定後端網址<br>目前顯示預設庫存</div>';
-            renderProducts(); 
-            return; 
-        }
-
-        // 顯示載入中
-        const checkoutBtn = document.getElementById('btnCheckout');
-        checkoutBtn.innerText = "庫存同步中...";
-        checkoutBtn.disabled = true;
-
-        fetch(GOOGLE_SCRIPT_URL)
-        .then(res => res.json())
-        .then(stockData => {
-            // 更新本地庫存數據
-            categories.forEach(cat => {
-                cat.items.forEach(item => {
-                    if (stockData[item.id] !== undefined) {
-                        item.stock = stockData[item.id];
-                    }
-                });
-            });
-            renderProducts(); // 重新渲染商品區
-            updateCartUI();   // 更新購物車顯示
-            checkoutBtn.innerText = "結帳收款";
-            checkoutBtn.disabled = false;
-        })
-        .catch(err => {
-            console.error("Stock fetch failed", err);
-            grid.innerHTML = '<div style="text-align:center; color:red; margin-top:50px;">⚠️ 庫存同步失敗<br>請檢查網路或 Script</div>';
-            renderProducts();
-        });
-    }
-
-    function renderProducts() {
-        const grid = document.getElementById('productGrid');
-        let html = '';
-        
-        categories.forEach(cat => {
-            html += `<div class="category-title">${cat.title}</div>`;
-            cat.items.forEach(p => {
-                // 判斷庫存
-                let isOutOfStock = p.stock <= 0;
-                let stockClass = isOutOfStock ? 'product-card out-of-stock' : 'product-card';
-                let stockText = isOutOfStock ? '補貨中' : `庫存: ${p.stock}`;
-                let onClick = isOutOfStock ? '' : `onclick="addToCart(${p.id})"`;
-
-                html += `
-                    <div class="${stockClass}" ${onClick}>
-                        <div class="tag" style="background:${p.color}"></div>
-                        <div class="p-name">${p.name}</div>
-                        <div class="p-price">$${p.price}</div>
-                        <div class="p-stock">${stockText}</div>
-                    </div>
-                `;
-            });
-        });
-        grid.innerHTML = html;
-    }
-
-    function findProduct(id) {
-        for (let cat of categories) {
-            for (let item of cat.items) {
-                if (item.id === id) return item;
+    // --- USB 硬體核心 1: 條碼掃描槍 (Keyboard Wedge Mode) ---
+    // 根據業界標準，掃描槍模擬鍵盤輸入，結尾通常帶有 'Enter'
+    function setupBarcodeScanner() {
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                if (barcodeBuffer.length > 0) {
+                    processBarcode(barcodeBuffer);
+                    barcodeBuffer = "";
+                }
+            } else {
+                // 排除功能鍵，僅接收數字或英文字元
+                if (e.key.length === 1) {
+                    barcodeBuffer += e.key;
+                }
             }
-        }
-        return null;
-    }
-
-    function addToCart(id) {
-        const product = findProduct(id);
-        
-        // 檢查庫存 (如果是連線模式)
-        if(!GOOGLE_SCRIPT_URL.includes("您的")) {
-            let currentQty = cart[id] ? cart[id].qty : 0;
-            if (currentQty + 1 > product.stock) {
-                alert(`❌ 庫存不足！\n目前庫存僅剩：${product.stock}`);
-                return;
-            }
-        }
-
-        cart[id] = cart[id] ? { ...product, qty: cart[id].qty + 1 } : { ...product, qty: 1 };
-        updateCartUI();
-    }
-
-    function removeFromCart(id) {
-        if (cart[id]) {
-            cart[id].qty -= 1;
-            if (cart[id].qty <= 0) delete cart[id];
-        }
-        updateCartUI();
-    }
-
-    function setDiscount(type, value) {
-        discountType = type;
-        discountValue = value;
-        document.querySelectorAll('.disc-btn').forEach(btn => {
-            btn.classList.remove('active');
-            if(type === 'none' && btn.innerText === '無') btn.classList.add('active');
-            if(type === 'percent' && value === 0.95 && btn.innerText.includes('95')) btn.classList.add('active');
-            if(type === 'percent' && value === 0.9 && btn.innerText.includes('9折')) btn.classList.add('active');
-            if(type === 'percent' && value === 0.85 && btn.innerText.includes('85')) btn.classList.add('active');
-            if(type === 'minus' && btn.innerText.includes('-50')) btn.classList.add('active');
+            // 防錯：如果 buffer 過長且太久沒 Enter，則清空 (Timeout 機制)
+            clearTimeout(window.barcodeTimeout);
+            window.barcodeTimeout = setTimeout(() => { barcodeBuffer = ""; }, 100);
         });
-        updateCartUI();
     }
 
-    function updateCartUI() {
-        const list = document.getElementById('cartList');
-        const priceDetails = document.getElementById('priceDetails');
-        const items = Object.values(cart);
-        
-        let originalTotal = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
-        let finalTotal = originalTotal;
-        let discountAmount = 0;
-
-        if (discountType === 'percent') {
-            finalTotal = Math.round(originalTotal * discountValue);
-            discountAmount = originalTotal - finalTotal;
-        } else if (discountType === 'minus') {
-            finalTotal = originalTotal - discountValue;
-            if(finalTotal < 0) finalTotal = 0;
-            discountAmount = discountValue;
+    function processBarcode(code) {
+        const product = PRODUCTS.find(p => p.barcode === code);
+        if (product) {
+            add(product.id);
+            toast(`📢 掃描成功: ${product.name}`);
+        } else {
+            console.warn("Unknown barcode:", code);
         }
+    }
 
-        if (items.length === 0) {
-            list.innerHTML = '<div style="text-align:center; color:#999; margin-top:50px;">尚未點餐</div>';
-            priceDetails.innerHTML = `<div class="total-row"><span>Total</span><span>$0</span></div>`;
+    // --- USB 硬體核心 2: USB 印表機 (Web Serial API) ---
+    // 這需要瀏覽器支援 Web Serial (Chrome/Edge)
+    let printerPort = null;
+    async function connectPrinter() {
+        if (!("serial" in navigator)) {
+            toast("瀏覽器不支援 USB 串口通訊", true);
             return;
         }
-
-        list.innerHTML = items.map(item => `
-            <div class="cart-item">
-                <div class="item-info">
-                    <span class="item-name">${item.name}</span>
-                    <span class="item-spec">${item.type}</span>
-                </div>
-                <span class="item-qty">${item.qty}</span>
-                <div class="btn-del" onclick="removeFromCart(${item.id})">×</div>
-            </div>
-        `).join('');
-
-        if (discountType !== 'none' && originalTotal > 0) {
-            priceDetails.innerHTML = `
-                <div class="price-row"><span>原價</span><span class="strike">$${originalTotal}</span></div>
-                <div class="price-row"><span class="discount-text">折扣</span><span class="discount-text">-$${discountAmount}</span></div>
-                <div class="total-row"><span>Total</span><span>$${finalTotal}</span></div>
-            `;
-        } else {
-            priceDetails.innerHTML = `<div class="total-row"><span>Total</span><span>$${originalTotal}</span></div>`;
+        try {
+            printerPort = await navigator.serial.requestPort();
+            await printerPort.open({ baudRate: 9600 });
+            document.getElementById('printerStatus').classList.add('active');
+            toast("✅ 印表機已連接");
+        } catch (e) {
+            console.error(e);
+            toast("連接失敗", true);
         }
     }
 
-    function setMethod(btn, method) {
-        document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentMethod = method;
+    // --- USB 硬體核心 3: 離線資料匯出至 USB (File System Access) ---
+    async function exportToUSB() {
+        if (syncQueue.length === 0) return toast("沒有待同步資料");
+        try {
+            const handle = await window.showSaveFilePicker({
+                suggestedName: `POS_Backup_${new Date().getTime()}.json`,
+                types: [{ description: 'JSON File', accept: {'application/json': ['.json']} }]
+            });
+            const writable = await handle.createWritable();
+            await writable.write(JSON.stringify(syncQueue, null, 2));
+            await writable.close();
+            toast("💾 已安全備份至 USB");
+        } catch (e) {
+            toast("匯出取消");
+        }
     }
 
-    function clearCart() {
-        cart = {};
-        setDiscount('none', 0);
-        updateCartUI();
+    // --- POS 基礎邏輯 ---
+    function renderProducts() {
+        const grid = document.getElementById('productGrid');
+        grid.innerHTML = ""; let lastCat = "";
+        PRODUCTS.forEach(p => {
+            if(p.cat !== lastCat) {
+                grid.innerHTML += `<div class="category-header">${p.cat}</div>`;
+                lastCat = p.cat;
+            }
+            grid.innerHTML += `<div class="product-card" onclick="add(${p.id})">
+                <span class="p-name">${p.name}</span>
+                <span class="p-price">$${p.price}</span>
+                <span class="p-code">${p.barcode}</span>
+            </div>`;
+        });
     }
 
-    function submitOrder() {
+    function add(id) {
+        const p = PRODUCTS.find(x => x.id === id);
+        cart[id] = { ...p, qty: (cart[id]?.qty || 0) + 1 };
+        updateUI();
+    }
+
+    function updateUI() {
+        const list = document.getElementById('cartItems');
         const items = Object.values(cart);
-        if (items.length === 0) { alert("購物車是空的！"); return; }
-
-        if(GOOGLE_SCRIPT_URL.includes("您的")) { alert("請設定 Script 網址！"); return; }
-
-        const btn = document.getElementById('btnCheckout');
-        const originalText = btn.innerText;
-        btn.disabled = true;
-        btn.innerText = "扣庫存中...";
-
-        const cartData = items.map(i => ({ id: i.id, qty: i.qty }));
-        let originalTotal = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
-        let finalTotal = originalTotal;
-        let discountAmount = 0;
-
-        if (discountType === 'percent') {
-            finalTotal = Math.round(originalTotal * discountValue);
-            discountAmount = originalTotal - finalTotal;
-        } else if (discountType === 'minus') {
-            finalTotal = originalTotal - discountValue;
-            if(finalTotal < 0) finalTotal = 0;
-            discountAmount = discountValue;
+        if(items.length === 0) {
+            list.innerHTML = `<div style="text-align:center; color:#ccc; margin-top:50px;">請點選商品或掃描條碼</div>`;
+            document.getElementById('finalTotal').innerText = "$0";
+            return;
         }
+        list.innerHTML = items.map(i => `<div class="cart-item"><span>${i.name}</span><b>x ${i.qty}</b></div>`).join('');
+        const total = items.reduce((s, i) => s + (i.price * i.qty), 0);
+        document.getElementById('finalTotal').innerText = "$" + total;
+    }
 
-        const itemsString = items.map(i => `[${i.type}]${i.name}x${i.qty}`).join(', ');
+    function setOpt(key, val, btn) {
+        config[key] = val;
+        const group = key === 'prof' ? 'profGrid' : 'methodGrid';
+        document.querySelectorAll(`#${group} .opt-btn`).forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
 
-        const data = {
-            itemsString: itemsString,
-            cartItems: cartData,
-            originalTotal: originalTotal,
-            discount: discountAmount,
-            finalTotal: finalTotal,
-            method: currentMethod,
-            note: discountType !== 'none' ? `折扣: ${discountType}` : ''
+    function handlePay() {
+        const total = document.getElementById('finalTotal').innerText;
+        if(total === "$0") return;
+        
+        if(config.meth === 'LinePay' || config.meth === '轉帳') {
+            document.getElementById('mQR').src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=PAY_${config.meth}`;
+            document.getElementById('mPrice').innerText = total;
+            document.getElementById('payModal').style.display = 'flex';
+        } else {
+            finishOrder();
+        }
+    }
+
+    function finishOrder() {
+        const items = Object.values(cart);
+        const order = {
+            itemsString: items.map(i => `${i.name}x${i.qty}`).join(','),
+            total: parseInt(document.getElementById('finalTotal').innerText.replace("$","")),
+            method: config.meth,
+            profile: config.prof,
+            ts: Date.now()
         };
 
-        fetch(GOOGLE_SCRIPT_URL, {
-            method: "POST",
-            mode: "no-cors",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data)
-        })
-        .then(() => {
-            alert(`✅ 結帳完成！\n實收：$${finalTotal}`);
-            clearCart();
-            fetchStock(); // 重抓庫存
-            btn.disabled = false;
-            btn.innerText = originalText;
-        })
-        .catch(err => {
-            alert("❌ 連線錯誤：" + err);
-            btn.disabled = false;
-            btn.innerText = originalText;
-        });
+        syncQueue.push(order);
+        saveQueue();
+        toast("✅ 交易已記錄");
+        resetCart();
+        closeModal();
+        tryUpload();
+    }
+
+    function loadQueue() {
+        const saved = localStorage.getItem('pos_usb_queue');
+        if(saved) syncQueue = JSON.parse(saved);
+        document.getElementById('queueSize').innerText = syncQueue.length;
+    }
+
+    function saveQueue() {
+        localStorage.setItem('pos_usb_queue', JSON.stringify(syncQueue));
+        document.getElementById('queueSize').innerText = syncQueue.length;
+    }
+
+    async function tryUpload() {
+        if (!navigator.onLine || syncQueue.length === 0) return;
+        const data = syncQueue[0];
+        try {
+            await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(data) });
+            syncQueue.shift();
+            saveQueue();
+            tryUpload();
+        } catch(e) {}
+    }
+
+    function initNetworkMonitor() {
+        const update = () => {
+            const online = navigator.onLine;
+            document.getElementById('netStatus').innerText = online ? "連線狀態: 🟢 線上" : "連線狀態: 🔴 離線";
+            if(online) tryUpload();
+        };
+        window.addEventListener('online', update);
+        window.addEventListener('offline', update);
+        update();
+    }
+
+    function resetCart() { cart = {}; updateUI(); }
+    function closeModal() { document.getElementById('payModal').style.display = 'none'; }
+    function toast(m, err=false) {
+        const t = document.getElementById('toast');
+        t.innerText = m; t.style.background = err ? 'var(--danger)' : '#333';
+        t.style.display = 'block'; setTimeout(() => t.style.display='none', 2500);
     }
 </script>
 
 </body>
 </html>
-
-
-增加紀錄客人資訊 年齡性別
-
-
