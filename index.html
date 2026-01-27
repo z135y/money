@@ -26,36 +26,31 @@
         
         .p-name { font-weight: bold; font-size: 14px; color: var(--primary); display: block; height: 36px; overflow: hidden; line-height: 1.3; }
         .p-price { color: var(--warning); font-weight: bold; font-size: 13px; margin-top: 5px; }
-        
-        /* 庫存顯示標籤 (符合業界 UX 規範) */
         .p-stock { font-size: 10px; color: #95a5a6; margin-top: 6px; background: #f0f2f5; padding: 2px 6px; border-radius: 4px; display: inline-block; align-self: center; }
         .p-stock.low-stock { color: white; background: var(--danger); }
 
-        /* 右側：側邊欄流程 */
+        /* 右側側邊欄與流程 */
         .sidebar { flex: 3; background: white; display: flex; flex-direction: column; border-left: 1px solid #dcdde1; min-width: 360px; box-shadow: -5px 0 15px rgba(0,0,0,0.03); }
         .cart-header { padding: 15px; background: var(--primary); color: white; display: flex; justify-content: space-between; align-items: center; font-weight: bold; }
         .cart-list { flex: 1; overflow-y: auto; padding: 10px; border-bottom: 1px solid #f1f2f6; }
         .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #f9f9f9; font-size: 14px; }
         
-        /* 流程組件 */
         .step-section { padding: 12px 15px; border-bottom: 1px solid #f1f2f6; }
         .step-label { font-size: 11px; color: #95a5a6; font-weight: bold; margin-bottom: 8px; display: block; }
         .btn-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
         .opt-btn { padding: 8px 0; font-size: 11px; border: 1px solid #eee; background: #f9f9f9; border-radius: 6px; cursor: pointer; transition: 0.2s; text-align: center; }
         .opt-btn.active { background: var(--primary); color: white; border-color: var(--primary); font-weight: bold; }
 
-        /* 結帳按鈕與總計 */
         .footer-section { padding: 20px; background: #fafafa; border-top: 1px solid #eee; }
         .price-row { display: flex; justify-content: space-between; font-size: 14px; color: #7f8c8d; margin-bottom: 5px; }
         .total-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .total-val { font-size: 32px; font-weight: 900; color: var(--primary); }
         .btn-pay { width: 100%; padding: 18px; background: var(--success); color: white; border: none; border-radius: 12px; font-size: 20px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(46, 204, 113, 0.2); }
 
-        /* 支付彈窗 */
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; justify-content: center; align-items: center; z-index: 10000; }
         .modal-body { background: white; padding: 30px; border-radius: 24px; text-align: center; width: 320px; }
         .qr-placeholder { width: 220px; height: 220px; margin: 15px auto; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border-radius: 10px; overflow: hidden; border: 1px solid #eee; }
-        .qr-placeholder img { width: 100%; }
+        .qr-placeholder img { width: 100%; height: 100%; object-fit: contain; }
 
         #toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); padding: 12px 25px; border-radius: 30px; color: white; display: none; z-index: 11000; font-size: 14px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
 
@@ -74,7 +69,8 @@
         <div id="bankInfo" style="background:#f1f2f6; padding:12px; border-radius:12px; font-size:13px; text-align:left; margin-bottom:15px; display:none; line-height:1.6;">
             <b>台新 (812)</b><br>帳號：2888-10-2195140-5<br>戶名：鄭宇翔
         </div>
-        <div class="qr-placeholder"><img id="mQR" src="" alt="QR"></div>
+        <!-- QR Code 顯示區域 -->
+        <div class="qr-placeholder"><img id="mQR" src="" alt="請更換收款圖片"></div>
         <div id="mPrice" style="font-size: 28px; font-weight: 900; color: var(--danger);">$0</div>
         <button class="btn-pay" id="btnFinal" onclick="submitOrder()">已收到款項 (結帳)</button>
         <button onclick="closeModal()" style="background:none; border:none; color:#bdc3c7; margin-top:15px; font-size:12px; cursor:pointer;">返回修改</button>
@@ -105,7 +101,6 @@
             </div>
 
             <div class="control-panel">
-                <!-- Step 2: 折扣 -->
                 <div class="step-section">
                     <span class="step-label">選擇折扣</span>
                     <div class="btn-grid" id="discGrid">
@@ -116,7 +111,6 @@
                     </div>
                 </div>
 
-                <!-- Step 3: 輪廓 -->
                 <div class="step-section">
                     <span class="step-label">顧客性別</span>
                     <div class="btn-grid" id="genderGrid">
@@ -134,7 +128,6 @@
                     </div>
                 </div>
 
-                <!-- Step 4: 支付 -->
                 <div class="step-section" style="border-bottom:none;">
                     <span class="step-label">支付方式</span>
                     <div class="btn-grid" id="methodGrid">
@@ -161,9 +154,14 @@
 </div>
 
 <script>
+    // --- 配置區域：請替換下方網址 ---
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz9s2NUQupy7plDN-sRqQdbULRV5T5LE8xE4SYYUE_MR2vqT2O-bt1R5cwnOvhaYS5MYA/exec";
+    
+    // ✅ 請將下列網址替換為您實際的 QR Code 圖片網址
+    const LINE_PAY_QR_URL = "https://cdn.phototourl.com/uploads/2026-01-27-ba31b8a1-bf69-4f3e-813a-00a6698c7888.jpg"; 
+    const BANK_TRANSFER_QR_URL = "https://cdn.phototourl.com/uploads/2026-01-27-c9f1da35-3509-4f2e-91cd-b6f729047400.jpg";
+    // --------------------------------
 
-    // 原始品項主檔
     const PRODUCTS = [
         { id: 1, barcode: "1001", cat: "📦 茶葉與禮盒", name: '文山包種茶', price: 300, stock: 0 },
         { id: 2, barcode: "1002", cat: "📦 茶葉與禮盒", name: '蜜香紅茶', price: 350, stock: 0 },
@@ -198,7 +196,6 @@
         t.style.display = 'block'; setTimeout(() => t.style.display='none', 3000);
     }
 
-    // USB 掃描槍邏輯 (鍵盤模擬)
     function setupScanner() {
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
@@ -229,8 +226,6 @@
                 grid.innerHTML += `<div class="category-title">${p.cat}</div>`;
                 currentCat = p.cat;
             }
-            
-            // 庫存視覺判斷
             const isOut = p.stock <= 0 && p.id < 20; 
             const lowStockClass = (p.stock > 0 && p.stock <= 5) ? 'low-stock' : '';
 
@@ -249,12 +244,9 @@
     function addToCart(id) {
         const p = PRODUCTS.find(x => x.id === id);
         const qtyInCart = cart[id]?.qty || 0;
-        
-        // 庫存防呆 (ID < 20 判定實體庫存)
         if (p.id < 20 && qtyInCart + 1 > p.stock) {
             return notify(`❌ 庫存不足 (剩餘 ${p.stock})`, true);
         }
-
         cart[id] = { ...p, qty: qtyInCart + 1 };
         updateUI();
     }
@@ -288,15 +280,25 @@
     }
 
     function handleCheckoutAction() {
-        const total = parseInt(document.getElementById('finalTotal').innerText.replace("$",""));
-        if(total === 0) return notify("購物車是空的", true);
+        const finalTotal = parseInt(document.getElementById('finalTotal').innerText.replace("$",""));
+        if(finalTotal === 0) return notify("購物車是空的", true);
 
-        if(state.method === 'LinePay' || state.method === '轉帳') {
-            document.getElementById('mTitle').innerText = state.method === 'LinePay' ? 'LINE Pay 收款' : '銀行轉帳資訊';
-            document.getElementById('bankInfo').style.display = state.method === '轉帳' ? 'block' : 'none';
-            document.getElementById('mQR').src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=TEA_PAY_${state.method}_${total}`;
-            document.getElementById('mPrice').innerText = "$" + total;
-            document.getElementById('payModal').style.display = 'flex';
+        const modal = document.getElementById('payModal');
+        const qrImg = document.getElementById('mQR');
+        const bankInfo = document.getElementById('bankInfo');
+
+        if(state.method === 'LinePay') {
+            document.getElementById('mTitle').innerText = 'LINE Pay 收款';
+            bankInfo.style.display = 'none';
+            qrImg.src = LINE_PAY_QR_URL; // 替換為變數網址
+            document.getElementById('mPrice').innerText = "$" + finalTotal;
+            modal.style.display = 'flex';
+        } else if(state.method === '轉帳') {
+            document.getElementById('mTitle').innerText = '銀行轉帳資訊';
+            bankInfo.style.display = 'block';
+            qrImg.src = BANK_TRANSFER_QR_URL; // 替換為變數網址
+            document.getElementById('mPrice').innerText = "$" + finalTotal;
+            modal.style.display = 'flex';
         } else {
             submitOrder();
         }
@@ -309,17 +311,16 @@
         const discAmt = parseInt(document.getElementById('discAmt').innerText.replace("-$",""));
         const total = parseInt(document.getElementById('finalTotal').innerText.replace("$",""));
         
-        // 建立符合試算表欄位 A-J 順序的 Payload
         const payload = {
             itemsString: items.map(i => `${i.name}x${i.qty}`).join(','),
             cartItems: items.map(i => ({id: i.id, qty: i.qty})),
-            originalTotal: subtotal,  // 对应 D 栏
-            discount: discAmt,       // 对应 E 栏
-            finalTotal: total,       // 对应 F 栏
-            method: state.method,    // 对应 G 栏
-            gender: state.gender,    // 对应 H 栏
-            age: state.age,          // 对应 I 栏
-            note: state.disc !== 0 ? `折扣模式:${state.disc}` : '', // 对应 J 栏
+            originalTotal: subtotal,
+            discount: discAmt,
+            finalTotal: total,
+            method: state.method,
+            gender: state.gender,
+            age: state.age,
+            note: state.disc !== 0 ? `折扣模式:${state.disc}` : '',
             ts: Date.now()
         };
 
@@ -327,7 +328,6 @@
         saveLocalData();
         notify("✅ 結帳成功，背景同步中...");
         
-        // 樂觀庫存更新
         items.forEach(item => {
             const p = PRODUCTS.find(x => x.id === item.id);
             if (p) p.stock -= item.qty;
@@ -338,7 +338,6 @@
         processQueue();
     }
 
-    // 同步機制
     function loadLocalData() {
         const q = localStorage.getItem('tea_pos_v6_queue');
         if(q) syncQueue = JSON.parse(q);
