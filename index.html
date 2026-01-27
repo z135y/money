@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🍵 茶葉 POS - 雲端離線備援版</title>
+    <title>🍵 茶葉 POS - 全功能營運系統</title>
     <style>
         :root { 
             --primary: #2c3e50; --success: #27ae60; --warning: #f39c12; 
@@ -16,6 +16,8 @@
         .status-pill { padding: 2px 8px; border-radius: 10px; font-weight: bold; }
         .online-pill { background: var(--success); }
         .offline-pill { background: var(--danger); }
+        .hw-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; background: #95a5a6; }
+        .hw-dot.active { background: var(--success); box-shadow: 0 0 5px var(--success); }
 
         /* 左側：商品選單 */
         .product-area { flex: 7; padding: 20px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 15px; align-content: start; }
@@ -36,21 +38,25 @@
         .cart-list { flex: 1; overflow-y: auto; padding: 10px; border-bottom: 1px solid #f1f2f6; }
         .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #f9f9f9; font-size: 14px; }
         
+        /* 流程步驟 */
         .step-section { padding: 12px 15px; border-bottom: 1px solid #f1f2f6; }
         .step-label { font-size: 11px; color: #95a5a6; font-weight: bold; margin-bottom: 8px; display: block; }
         .btn-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
         .opt-btn { padding: 8px 0; font-size: 11px; border: 1px solid #eee; background: #f9f9f9; border-radius: 6px; cursor: pointer; transition: 0.2s; text-align: center; }
         .opt-btn.active { background: var(--primary); color: white; border-color: var(--primary); font-weight: bold; }
 
-        /* 底部操作 */
+        /* 備份按鈕區 */
+        .drive-backup { padding: 10px 15px; background: #e8f0fe; font-size: 11px; display: flex; justify-content: space-between; align-items: center; color: #1967d2; border-top: 1px solid #d2e3fc; }
+        .btn-save-file { border:none; background:#1967d2; color:white; padding:2px 8px; border-radius:4px; cursor:pointer; font-weight: bold; }
+
+        /* 總計與支付 */
         .footer-section { padding: 20px; background: #fafafa; border-top: 1px solid #eee; }
+        .price-row { display: flex; justify-content: space-between; font-size: 13px; color: #7f8c8d; margin-bottom: 4px; }
         .total-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .total-val { font-size: 32px; font-weight: 900; color: var(--primary); }
         .btn-pay { width: 100%; padding: 18px; background: var(--success); color: white; border: none; border-radius: 12px; font-size: 20px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(46, 204, 113, 0.2); }
 
-        /* Drive 備份按鈕 */
-        .drive-backup { padding: 10px 15px; background: #e8f0fe; font-size: 11px; display: flex; justify-content: space-between; align-items: center; color: #1967d2; border-top: 1px solid #d2e3fc; }
-
+        /* 彈窗樣式 */
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; justify-content: center; align-items: center; z-index: 10000; }
         .modal-body { background: white; padding: 30px; border-radius: 24px; text-align: center; width: 320px; }
         .qr-placeholder { width: 220px; height: 220px; margin: 15px auto; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border-radius: 10px; overflow: hidden; border: 1px solid #eee; }
@@ -65,22 +71,23 @@
 
 <div id="toast"></div>
 
-<!-- 支付彈窗 -->
+<!-- 支付核對彈窗 -->
 <div class="modal" id="payModal">
     <div class="modal-body">
         <h3 id="mTitle" style="margin:0;">支付核對</h3>
-        <p style="font-size: 12px; color: #95a5a6; margin: 5px 0 15px;">請確認顧客已完成轉帳或掃碼</p>
+        <p style="font-size: 12px; color: #95a5a6; margin: 5px 0 15px;">請向顧客出示 QR Code 並確認金額</p>
         <div id="bankInfo" style="background:#f1f2f6; padding:12px; border-radius:12px; font-size:13px; text-align:left; margin-bottom:15px; display:none; line-height:1.6;">
             <b>台新 (812)</b><br>帳號：2888-10-2195140-5<br>戶名：鄭宇翔
         </div>
-        <div class="qr-placeholder"><img id="mQR" src="" alt="收款圖片載入中"></div>
+        <div class="qr-placeholder"><img id="mQR" src="" alt="收款圖片"></div>
         <div id="mPrice" style="font-size: 28px; font-weight: 900; color: var(--danger);">$0</div>
-        <button class="btn-pay" onclick="submitOrder()">已收到款項 (結帳)</button>
+        <button class="btn-pay" onclick="submitFinalOrder()">已收到款項 (結帳)</button>
         <button onclick="closeModal()" style="background:none; border:none; color:#bdc3c7; margin-top:15px; font-size:12px; cursor:pointer;">返回修改</button>
     </div>
 </div>
 
 <div style="display:flex; flex-direction:column; width:100%;">
+    <!-- 頂部狀態列 -->
     <div class="status-header">
         <div>
             <span class="status-pill" id="netStatusPill">偵測中...</span>
@@ -88,7 +95,7 @@
             <span id="syncStatus">雲端同步中...</span>
         </div>
         <div>
-            <span id="driveStatus">💿 已儲存本地備份</span>
+            <span class="hw-dot active"></span> <span id="usbStatus">USB 掃描槍就緒</span>
         </div>
     </div>
 
@@ -97,17 +104,18 @@
 
         <div class="sidebar">
             <div class="cart-header">
-                <span>🛒 購物清單</span>
-                <button onclick="refreshStock()" style="background:none; border:none; color:white; font-size:12px; cursor:pointer;">同步 🔄</button>
+                <span>🛒 結帳清單</span>
+                <button onclick="refreshStock()" style="background:none; border:none; color:white; font-size:12px; cursor:pointer;">刷新庫存 🔄</button>
             </div>
             
             <div class="cart-list" id="cartItems">
-                <div style="text-align:center; color:#bdc3c7; margin-top:50px;">請點選商品或掃描條碼</div>
+                <div style="text-align:center; color:#bdc3c7; margin-top:50px;">點選商品或掃描條碼</div>
             </div>
 
             <div class="control-panel">
+                <!-- 步驟 1: 折扣 -->
                 <div class="step-section">
-                    <span class="step-label">選擇折扣</span>
+                    <span class="step-label">1. 選擇折扣</span>
                     <div class="btn-grid" id="discGrid">
                         <button class="opt-btn active" onclick="setOpt('disc', 0, this)">無</button>
                         <button class="opt-btn" onclick="setOpt('disc', 0.9, this)">9折</button>
@@ -116,15 +124,16 @@
                     </div>
                 </div>
 
+                <!-- 步驟 2: 顧客輪廓 -->
                 <div class="step-section">
-                    <span class="step-label">顧客分析</span>
-                    <div class="btn-grid" id="genderGrid">
+                    <span class="step-label">2. 顧客輪廓 (性別 / 年齡)</span>
+                    <div class="btn-grid" id="genderGrid" style="margin-bottom:5px;">
                         <button class="opt-btn active" onclick="setOpt('gender', '未知', this)">未知</button>
                         <button class="opt-btn" onclick="setOpt('gender', '男', this)">男</button>
                         <button class="opt-btn" onclick="setOpt('gender', '女', this)">女</button>
                         <button class="opt-btn" onclick="setOpt('gender', '多元', this)">多元</button>
                     </div>
-                    <div class="btn-grid" id="ageGrid" style="margin-top:5px;">
+                    <div class="btn-grid" id="ageGrid">
                         <button class="opt-btn" onclick="setOpt('age', '-20', this)">-20</button>
                         <button class="opt-btn" onclick="setOpt('age', '21-35', this)">21-35</button>
                         <button class="opt-btn" onclick="setOpt('age', '36-50', this)">36-50</button>
@@ -132,29 +141,32 @@
                     </div>
                 </div>
 
+                <!-- 步驟 3: 支付方式 -->
                 <div class="step-section" style="border-bottom:none;">
-                    <span class="step-label">支付方式</span>
+                    <span class="step-label">3. 支付方式</span>
                     <div class="btn-grid" id="methodGrid">
                         <button class="opt-btn active" onclick="setOpt('method', '現金', this)">現金</button>
                         <button class="opt-btn" onclick="setOpt('method', 'LinePay', this)">Line</button>
                         <button class="opt-btn" onclick="setOpt('method', '轉帳', this)">轉帳</button>
-                        <button class="opt-btn" onclick="setMethod('信用卡', this)">刷卡</button>
+                        <button class="opt-btn" onclick="setOpt('method', '信用卡', this)">刷卡</button>
                     </div>
                 </div>
             </div>
 
-            <!-- Drive 同步提示區 -->
+            <!-- Drive 備份提示區 -->
             <div class="drive-backup">
-                <span>備援: 離線數據檔案 (<span id="localCount">0</span>)</span>
-                <button onclick="downloadLogForDrive()" style="border:none; background:#1967d2; color:white; padding:2px 8px; border-radius:4px; cursor:pointer;">存至 Drive 資料匣</button>
+                <span>備援: 離線備份佇列 (<span id="localCount">0</span>)</span>
+                <button onclick="downloadLogForDrive()" class="btn-save-file">存至 Drive 資料匣</button>
             </div>
 
             <div class="footer-section">
+                <div class="price-row"><span>小計 (原價)</span><span id="subTotal">$0</span></div>
+                <div class="price-row"><span>折扣金額</span><span id="discAmt" style="color:var(--danger)">-$0</span></div>
                 <div class="total-row">
                     <span style="color: #95a5a6; font-size: 14px;">應收總計</span>
                     <span class="total-val" id="finalTotal">$0</span>
                 </div>
-                <button class="btn-pay" onclick="handleCheckoutAction()">確認結帳</button>
+                <button class="btn-pay" onclick="handlePayAction()">確認結帳並上傳</button>
                 <button onclick="clearAll()" style="width:100%; border:none; background:none; color:var(--danger); font-size:11px; margin-top:10px; cursor:pointer; text-decoration:underline;">清空重來</button>
             </div>
         </div>
@@ -164,32 +176,37 @@
 <script>
     // --- 配置區 ---
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz9s2NUQupy7plDN-sRqQdbULRV5T5LE8xE4SYYUE_MR2vqT2O-bt1R5cwnOvhaYS5MYA/exec";
-    const LINE_PAY_QR = "https://example.com/your_linepay.png"; // 請換成您的圖片
-    const BANK_QR = "https://example.com/your_bank.png"; // 請換成您的圖片
+    
+    // ✅ 自定義收款圖片網址
+    const LINE_PAY_QR = "https://example.com/your_linepay_image.png"; 
+    const BANK_TRANSFER_QR = "https://example.com/your_bank_image.png";
 
+    // 完整品項主檔 (含 Barcode)
     const PRODUCTS = [
-        { id: 1, cat: "📦 茶葉與禮盒", name: '文山包種茶', price: 300, stock: 0 },
-        { id: 2, cat: "📦 茶葉與禮盒", name: '蜜香紅茶', price: 350, stock: 0 },
-        { id: 3, cat: "📦 茶葉與禮盒", name: '紅烏龍', price: 450, stock: 0 },
-        { id: 4, cat: "📦 茶葉與禮盒", name: '凍頂烏龍', price: 350, stock: 0 },
-        { id: 13, cat: "📦 茶葉與禮盒", name: '焙香茶穗', price: 100, stock: 0 },
-        { id: 5, cat: "📦 茶葉與禮盒", name: '茶山漫遊禮盒', price: 1100, stock: 0 },
-        { id: 14, cat: "📦 茶葉與禮盒", name: '銀質包種禮盒', price: 1200, stock: 0 },
-        { id: 6, cat: "📦 茶葉與禮盒", name: '盒裝茶包(10入)', price: 250, stock: 0 },
-        { id: 7, cat: "🥤 現萃茶飲", name: '現萃-文山包種', price: 60, stock: 0 },
-        { id: 8, cat: "🥤 現萃茶飲", name: '現萃-蜜香紅茶', price: 60, stock: 0 },
-        { id: 11, cat: "🥤 現萃茶飲", name: '冷泡茶 (瓶)', price: 80, stock: 0 },
-        { id: 12, cat: "🛍️ 其他", name: '提袋/包材', price: 10, stock: 0 }
+        { id: 1, barcode: "1001", cat: "📦 茶葉與禮盒", name: '文山包種茶', price: 300, stock: 0 },
+        { id: 2, barcode: "1002", cat: "📦 茶葉與禮盒", name: '蜜香紅茶', price: 350, stock: 0 },
+        { id: 3, barcode: "1003", cat: "📦 茶葉與禮盒", name: '紅烏龍', price: 450, stock: 0 },
+        { id: 4, barcode: "1004", cat: "📦 茶葉與禮盒", name: '凍頂烏龍', price: 350, stock: 0 },
+        { id: 13, barcode: "1013", cat: "📦 茶葉與禮盒", name: '焙香茶穗', price: 100, stock: 0 },
+        { id: 5, barcode: "1005", cat: "📦 茶葉與禮盒", name: '茶山漫遊禮盒', price: 1100, stock: 0 },
+        { id: 14, barcode: "1014", cat: "📦 茶葉與禮盒", name: '銀質包種禮盒', price: 1200, stock: 0 },
+        { id: 6, barcode: "1006", cat: "📦 茶葉與禮盒", name: '盒裝茶包(10入)', price: 250, stock: 0 },
+        { id: 7, barcode: "2007", cat: "🥤 現萃茶飲", name: '現萃-文山包種', price: 60, stock: 0 },
+        { id: 8, barcode: "2008", cat: "🥤 現萃茶飲", name: '現萃-蜜香紅茶', price: 60, stock: 0 },
+        { id: 11, barcode: "2011", cat: "🥤 現萃茶飲", name: '冷泡茶 (瓶)', price: 80, stock: 0 },
+        { id: 12, barcode: "9001", cat: "🛍️ 其他", name: '提袋/包材', price: 10, stock: 0 }
     ];
 
     let cart = {};
     let state = { disc: 0, gender: '未知', age: '51+', method: '現金' };
     let syncQueue = [];
-    let allHistory = []; // 用於生成 Drive 同步檔案
+    let allHistory = []; 
+    let barcodeBuffer = "";
 
     window.onload = () => {
-        loadLocalStorage();
+        loadData();
         renderProducts();
+        setupUSBScanner();
         initNetMonitor();
         refreshStock();
     };
@@ -197,49 +214,54 @@
     function notify(m, isErr = false) {
         const t = document.getElementById('toast');
         t.innerText = m; t.style.background = isErr ? 'var(--danger)' : '#333';
-        t.style.display = 'block'; setTimeout(() => t.style.display='none', 3000);
+        t.style.display = 'block'; setTimeout(() => t.style.display='none', 2500);
     }
 
-    // --- Google Drive 離線備援核心：下載 Log 檔案 ---
-    // 實務做法：下載一個 .csv 或 .json，並將其儲存在您電腦中掛載的 Google Drive 資料匣中
+    // --- USB 硬體核心 (Keyboard Wedge) ---
+    function setupUSBScanner() {
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                if (barcodeBuffer.length > 0) {
+                    const p = PRODUCTS.find(x => x.barcode === barcodeBuffer);
+                    if(p) { addToCart(p.id); notify(`📢 掃描成功: ${p.name}`); }
+                    barcodeBuffer = "";
+                }
+            } else if (e.key.length === 1) { barcodeBuffer += e.key; }
+            clearTimeout(window.scanT);
+            window.scanT = setTimeout(() => { barcodeBuffer = ""; }, 100);
+        });
+    }
+
+    // --- Google Drive 實體備份核心 ---
     function downloadLogForDrive() {
-        if (allHistory.length === 0) return notify("目前尚無成交紀錄", true);
-        
+        if (allHistory.length === 0) return notify("無交易紀錄可備份", true);
         const dataStr = JSON.stringify(allHistory, null, 2);
-        const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-        
-        const exportFileDefaultName = `POS_Backup_${new Date().toLocaleDateString()}.json`;
-        const linkElement = document.createElement('a');
-        linkElement.setAttribute('href', dataUri);
-        linkElement.setAttribute('download', exportFileDefaultName);
-        linkElement.click();
-        notify("💾 已生成備份檔，請存入 Google Drive 同步資料匣");
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `POS_Backup_${new Date().toLocaleDateString().replace(/\//g,'-')}.json`;
+        a.click();
+        notify("💾 備份檔已產生，請存入同步資料匣");
     }
 
-    function setOpt(key, val, btn) {
-        state[key] = val;
-        const gridId = key === 'disc' ? 'discGrid' : key === 'gender' ? 'genderGrid' : key === 'age' ? 'ageGrid' : 'methodGrid';
-        document.querySelectorAll(`#${gridId} .opt-btn`).forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        updateUI();
-    }
-
+    // --- UI 渲染邏輯 ---
     function renderProducts() {
         const grid = document.getElementById('productGrid');
-        grid.innerHTML = ""; let currentCat = "";
+        grid.innerHTML = ""; let curCat = "";
         PRODUCTS.forEach(p => {
-            if(p.cat !== currentCat) {
+            if(p.cat !== curCat) {
                 grid.innerHTML += `<div class="category-title">${p.cat}</div>`;
-                currentCat = p.cat;
+                curCat = p.cat;
             }
             const isOut = p.stock <= 0 && p.id < 20; 
-            const lowStockClass = (p.stock > 0 && p.stock <= 5) ? 'low-stock' : '';
+            const lowClass = (p.stock > 0 && p.stock <= 5) ? 'low-stock' : '';
             grid.innerHTML += `
                 <div class="product-card ${isOut ? 'out-of-stock' : ''}" onclick="addToCart(${p.id})">
                     <span class="p-name">${p.name}</span>
                     <div>
                         <span class="p-price">$${p.price}</span><br>
-                        <span class="p-stock ${lowStockClass}">庫存: ${p.stock}</span>
+                        <span class="p-stock ${lowClass}">庫存: ${p.stock}</span>
                     </div>
                 </div>`;
         });
@@ -247,9 +269,9 @@
 
     function addToCart(id) {
         const p = PRODUCTS.find(x => x.id === id);
-        const qty = cart[id]?.qty || 0;
-        if (p.id < 20 && qty + 1 > p.stock) return notify(`❌ 庫存不足`, true);
-        cart[id] = { ...p, qty: qty + 1 };
+        const curQty = cart[id]?.qty || 0;
+        if (p.id < 20 && curQty + 1 > p.stock) return notify(`❌ 庫存不足`, true);
+        cart[id] = { ...p, qty: curQty + 1 };
         updateUI();
     }
 
@@ -257,54 +279,78 @@
         const list = document.getElementById('cartItems');
         const items = Object.values(cart);
         if(items.length === 0) {
-            list.innerHTML = `<div style="text-align:center; color:#bdc3c7; margin-top:50px;">請先選擇商品</div>`;
+            list.innerHTML = `<div style="text-align:center; color:#bdc3c7; margin-top:50px;">點選商品或掃描條碼</div>`;
+            document.getElementById('subTotal').innerText = "$0";
+            document.getElementById('discAmt').innerText = "-$0";
             document.getElementById('finalTotal').innerText = "$0";
             return;
         }
         list.innerHTML = items.map(i => `<div class="cart-item"><span>${i.name}</span><b>x ${i.qty}</b></div>`).join('');
+        
         const sub = items.reduce((s, i) => s + (i.price * i.qty), 0);
         let final = sub;
-        if(state.disc > 0 && state.disc < 1) final = Math.round(sub * state.disc);
-        else if(state.disc < 0) final = Math.max(0, sub + state.disc);
+        let discAmt = 0;
+        if(state.disc > 0 && state.disc < 1) {
+            final = Math.round(sub * state.disc);
+            discAmt = sub - final;
+        } else if(state.disc < 0) {
+            discAmt = Math.abs(state.disc);
+            final = Math.max(0, sub - discAmt);
+        }
+        
+        document.getElementById('subTotal').innerText = "$" + sub;
+        document.getElementById('discAmt').innerText = "-$" + discAmt;
         document.getElementById('finalTotal').innerText = "$" + final;
     }
 
-    function handleCheckoutAction() {
-        const total = document.getElementById('finalTotal').innerText;
-        if(total === "$0") return notify("清單為空", true);
+    function setOpt(k, v, btn) {
+        state[k] = v;
+        const g = k === 'disc' ? 'discGrid' : k === 'gender' ? 'genderGrid' : k === 'age' ? 'ageGrid' : 'methodGrid';
+        document.querySelectorAll(`#${g} .opt-btn`).forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        updateUI();
+    }
+
+    // --- 支付處理 ---
+    function handlePayAction() {
+        const final = document.getElementById('finalTotal').innerText;
+        if(final === "$0") return notify("清單為空", true);
+
         if(state.method === 'LinePay' || state.method === '轉帳') {
             document.getElementById('mTitle').innerText = state.method === 'LinePay' ? 'LINE Pay' : '銀行轉帳';
-            document.getElementById('mQR').src = state.method === 'LinePay' ? LINE_PAY_QR : BANK_QR;
+            document.getElementById('mQR').src = state.method === 'LinePay' ? LINE_PAY_QR : BANK_TRANSFER_QR;
             document.getElementById('bankInfo').style.display = state.method === '轉帳' ? 'block' : 'none';
-            document.getElementById('mPrice').innerText = total;
+            document.getElementById('mPrice').innerText = final;
             document.getElementById('payModal').style.display = 'flex';
         } else {
-            submitOrder();
+            submitFinalOrder();
         }
     }
 
-    function submitOrder() {
+    function submitFinalOrder() {
         closeModal();
         const items = Object.values(cart);
+        const subtotal = parseInt(document.getElementById('subTotal').innerText.replace("$",""));
+        const discAmt = parseInt(document.getElementById('discAmt').innerText.replace("-$",""));
         const total = parseInt(document.getElementById('finalTotal').innerText.replace("$",""));
         
         const payload = {
             itemsString: items.map(i => `${i.name}x${i.qty}`).join(','),
             cartItems: items.map(i => ({id: i.id, qty: i.qty})),
+            originalTotal: subtotal,
+            discount: discAmt,
             finalTotal: total,
             method: state.method,
             gender: state.gender,
             age: state.age,
+            note: state.disc !== 0 ? `折扣:${state.disc}` : '',
             ts: Date.now()
         };
 
-        // 1. 存入佇列 (離線補傳用)
         syncQueue.push(payload);
-        // 2. 存入歷史紀錄 (Drive 備份用)
         allHistory.push(payload);
-        
-        saveLocalStorage();
-        notify("✅ 已記錄交易");
+        saveData();
+        notify("✅ 已存入系統，同步中...");
         
         // 樂觀庫存更新
         items.forEach(item => {
@@ -314,21 +360,21 @@
 
         clearAll();
         renderProducts();
-        processQueue(); // 嘗試同步
+        processQueue();
     }
 
-    // --- 離線持久化邏輯 ---
-    function loadLocalStorage() {
-        const q = localStorage.getItem('tea_pos_v_queue');
-        const h = localStorage.getItem('tea_pos_v_history');
+    // --- 數據持久化 ---
+    function loadData() {
+        const q = localStorage.getItem('tea_pos_v7_queue');
+        const h = localStorage.getItem('tea_pos_v7_history');
         if(q) syncQueue = JSON.parse(q);
         if(h) allHistory = JSON.parse(h);
         updateQueueUI();
     }
 
-    function saveLocalStorage() {
-        localStorage.setItem('tea_pos_v_queue', JSON.stringify(syncQueue));
-        localStorage.setItem('tea_pos_v_history', JSON.stringify(allHistory));
+    function saveData() {
+        localStorage.setItem('tea_pos_v7_queue', JSON.stringify(syncQueue));
+        localStorage.setItem('tea_pos_v7_history', JSON.stringify(allHistory));
         updateQueueUI();
     }
 
@@ -346,7 +392,7 @@
         try {
             await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(data) });
             syncQueue.shift();
-            saveLocalStorage();
+            saveData();
             processQueue();
         } catch(e) {}
     }
