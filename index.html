@@ -66,11 +66,17 @@
     <div class="modal-body">
         <h3 id="mTitle" style="margin:0;">支付核對</h3>
         <p style="font-size: 12px; color: #95a5a6; margin: 5px 0 15px;">請確認顧客已完成轉帳或掃碼</p>
+        
+        <!-- 銀行帳戶資訊 (可在 script 內修改文字) -->
         <div id="bankInfo" style="background:#f1f2f6; padding:12px; border-radius:12px; font-size:13px; text-align:left; margin-bottom:15px; display:none; line-height:1.6;">
             <b>台新 (812)</b><br>帳號：2888-10-2195140-5<br>戶名：鄭宇翔
         </div>
-        <!-- QR Code 顯示區域 -->
-        <div class="qr-placeholder"><img id="mQR" src="" alt="請更換收款圖片"></div>
+        
+        <!-- 收款圖片顯示區域 -->
+        <div class="qr-placeholder">
+            <img id="mQR" src="" alt="請檢查圖片網址是否正確">
+        </div>
+        
         <div id="mPrice" style="font-size: 28px; font-weight: 900; color: var(--danger);">$0</div>
         <button class="btn-pay" id="btnFinal" onclick="submitOrder()">已收到款項 (結帳)</button>
         <button onclick="closeModal()" style="background:none; border:none; color:#bdc3c7; margin-top:15px; font-size:12px; cursor:pointer;">返回修改</button>
@@ -101,6 +107,7 @@
             </div>
 
             <div class="control-panel">
+                <!-- Step 2: 折扣 -->
                 <div class="step-section">
                     <span class="step-label">選擇折扣</span>
                     <div class="btn-grid" id="discGrid">
@@ -111,6 +118,7 @@
                     </div>
                 </div>
 
+                <!-- Step 3: 輪廓 -->
                 <div class="step-section">
                     <span class="step-label">顧客性別</span>
                     <div class="btn-grid" id="genderGrid">
@@ -128,6 +136,7 @@
                     </div>
                 </div>
 
+                <!-- Step 4: 支付 -->
                 <div class="step-section" style="border-bottom:none;">
                     <span class="step-label">支付方式</span>
                     <div class="btn-grid" id="methodGrid">
@@ -154,13 +163,20 @@
 </div>
 
 <script>
-    // --- 配置區域：請替換下方網址 ---
+    // ==========================================
+    // ⚙️ 自定義配置區 (請在下方貼入您的網址)
+    // ==========================================
+    
+    // 1. Google Apps Script 網址
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz9s2NUQupy7plDN-sRqQdbULRV5T5LE8xE4SYYUE_MR2vqT2O-bt1R5cwnOvhaYS5MYA/exec";
     
-    // ✅ 請將下列網址替換為您實際的 QR Code 圖片網址
+    // 2. LINE Pay 收款圖連結 (請替換為您下載的圖片 URL)
     const LINE_PAY_QR_URL = "https://cdn.phototourl.com/uploads/2026-01-27-ba31b8a1-bf69-4f3e-813a-00a6698c7888.jpg"; 
+    
+    // 3. 銀行轉帳收款圖連結 (請替換為您的銀行 QR Code 或帳號圖 URL)
     const BANK_TRANSFER_QR_URL = "https://cdn.phototourl.com/uploads/2026-01-27-c9f1da35-3509-4f2e-91cd-b6f729047400.jpg";
-    // --------------------------------
+    
+    // ==========================================
 
     const PRODUCTS = [
         { id: 1, barcode: "1001", cat: "📦 茶葉與禮盒", name: '文山包種茶', price: 300, stock: 0 },
@@ -280,25 +296,18 @@
     }
 
     function handleCheckoutAction() {
-        const finalTotal = parseInt(document.getElementById('finalTotal').innerText.replace("$",""));
-        if(finalTotal === 0) return notify("購物車是空的", true);
+        const total = document.getElementById('finalTotal').innerText;
+        if(total === "$0") return notify("購物車是空的", true);
 
-        const modal = document.getElementById('payModal');
-        const qrImg = document.getElementById('mQR');
-        const bankInfo = document.getElementById('bankInfo');
-
-        if(state.method === 'LinePay') {
-            document.getElementById('mTitle').innerText = 'LINE Pay 收款';
-            bankInfo.style.display = 'none';
-            qrImg.src = LINE_PAY_QR_URL; // 替換為變數網址
-            document.getElementById('mPrice').innerText = "$" + finalTotal;
-            modal.style.display = 'flex';
-        } else if(state.method === '轉帳') {
-            document.getElementById('mTitle').innerText = '銀行轉帳資訊';
-            bankInfo.style.display = 'block';
-            qrImg.src = BANK_TRANSFER_QR_URL; // 替換為變數網址
-            document.getElementById('mPrice').innerText = "$" + finalTotal;
-            modal.style.display = 'flex';
+        if(state.method === 'LinePay' || state.method === '轉帳') {
+            document.getElementById('mTitle').innerText = state.method === 'LinePay' ? 'LINE Pay 收款' : '銀行轉帳資訊';
+            document.getElementById('bankInfo').style.display = state.method === '轉帳' ? 'block' : 'none';
+            
+            // 根據支付方式動態載入圖片
+            document.getElementById('mQR').src = state.method === 'LinePay' ? LINE_PAY_QR_URL : BANK_TRANSFER_QR_URL;
+            
+            document.getElementById('mPrice').innerText = total;
+            document.getElementById('payModal').style.display = 'flex';
         } else {
             submitOrder();
         }
@@ -326,8 +335,9 @@
 
         syncQueue.push(payload);
         saveLocalData();
-        notify("✅ 結帳成功，背景同步中...");
+        notify("✅ 結帳成功，背景上傳中...");
         
+        // 樂觀庫存更新
         items.forEach(item => {
             const p = PRODUCTS.find(x => x.id === item.id);
             if (p) p.stock -= item.qty;
@@ -383,7 +393,7 @@
         up();
     }
 
-    function clearAll() { cart = {}; updateUI(); }
+    function clearAll() { cart = {}; state.disc = 0; updateUI(); }
     function closeModal() { document.getElementById('payModal').style.display = 'none'; }
 </script>
 
