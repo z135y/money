@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🍵 茶葉 POS - 完整營運系統</title>
+    <title>🍵 茶葉 POS - 雲端離線備援版</title>
     <style>
         :root { 
             --primary: #2c3e50; --success: #27ae60; --warning: #f39c12; 
@@ -13,8 +13,9 @@
         
         /* 狀態列 */
         .status-header { background: #34495e; color: white; padding: 8px 15px; font-size: 11px; display: flex; justify-content: space-between; align-items: center; z-index: 100; }
-        .hw-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; background: #95a5a6; }
-        .hw-dot.active { background: var(--success); box-shadow: 0 0 5px var(--success); }
+        .status-pill { padding: 2px 8px; border-radius: 10px; font-weight: bold; }
+        .online-pill { background: var(--success); }
+        .offline-pill { background: var(--danger); }
 
         /* 左側：商品選單 */
         .product-area { flex: 7; padding: 20px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 15px; align-content: start; }
@@ -29,7 +30,7 @@
         .p-stock { font-size: 10px; color: #95a5a6; margin-top: 6px; background: #f0f2f5; padding: 2px 6px; border-radius: 4px; display: inline-block; align-self: center; }
         .p-stock.low-stock { color: white; background: var(--danger); }
 
-        /* 右側側邊欄與流程 */
+        /* 右側：側邊欄流程 */
         .sidebar { flex: 3; background: white; display: flex; flex-direction: column; border-left: 1px solid #dcdde1; min-width: 360px; box-shadow: -5px 0 15px rgba(0,0,0,0.03); }
         .cart-header { padding: 15px; background: var(--primary); color: white; display: flex; justify-content: space-between; align-items: center; font-weight: bold; }
         .cart-list { flex: 1; overflow-y: auto; padding: 10px; border-bottom: 1px solid #f1f2f6; }
@@ -41,11 +42,14 @@
         .opt-btn { padding: 8px 0; font-size: 11px; border: 1px solid #eee; background: #f9f9f9; border-radius: 6px; cursor: pointer; transition: 0.2s; text-align: center; }
         .opt-btn.active { background: var(--primary); color: white; border-color: var(--primary); font-weight: bold; }
 
+        /* 底部操作 */
         .footer-section { padding: 20px; background: #fafafa; border-top: 1px solid #eee; }
-        .price-row { display: flex; justify-content: space-between; font-size: 14px; color: #7f8c8d; margin-bottom: 5px; }
         .total-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .total-val { font-size: 32px; font-weight: 900; color: var(--primary); }
         .btn-pay { width: 100%; padding: 18px; background: var(--success); color: white; border: none; border-radius: 12px; font-size: 20px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(46, 204, 113, 0.2); }
+
+        /* Drive 備份按鈕 */
+        .drive-backup { padding: 10px 15px; background: #e8f0fe; font-size: 11px; display: flex; justify-content: space-between; align-items: center; color: #1967d2; border-top: 1px solid #d2e3fc; }
 
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; justify-content: center; align-items: center; z-index: 10000; }
         .modal-body { background: white; padding: 30px; border-radius: 24px; text-align: center; width: 320px; }
@@ -61,24 +65,17 @@
 
 <div id="toast"></div>
 
-<!-- 支付核對彈窗 -->
+<!-- 支付彈窗 -->
 <div class="modal" id="payModal">
     <div class="modal-body">
         <h3 id="mTitle" style="margin:0;">支付核對</h3>
         <p style="font-size: 12px; color: #95a5a6; margin: 5px 0 15px;">請確認顧客已完成轉帳或掃碼</p>
-        
-        <!-- 銀行帳戶資訊 (可在 script 內修改文字) -->
         <div id="bankInfo" style="background:#f1f2f6; padding:12px; border-radius:12px; font-size:13px; text-align:left; margin-bottom:15px; display:none; line-height:1.6;">
             <b>台新 (812)</b><br>帳號：2888-10-2195140-5<br>戶名：鄭宇翔
         </div>
-        
-        <!-- 收款圖片顯示區域 -->
-        <div class="qr-placeholder">
-            <img id="mQR" src="" alt="請檢查圖片網址是否正確">
-        </div>
-        
+        <div class="qr-placeholder"><img id="mQR" src="" alt="收款圖片載入中"></div>
         <div id="mPrice" style="font-size: 28px; font-weight: 900; color: var(--danger);">$0</div>
-        <button class="btn-pay" id="btnFinal" onclick="submitOrder()">已收到款項 (結帳)</button>
+        <button class="btn-pay" onclick="submitOrder()">已收到款項 (結帳)</button>
         <button onclick="closeModal()" style="background:none; border:none; color:#bdc3c7; margin-top:15px; font-size:12px; cursor:pointer;">返回修改</button>
     </div>
 </div>
@@ -86,11 +83,13 @@
 <div style="display:flex; flex-direction:column; width:100%;">
     <div class="status-header">
         <div>
-            <span class="hw-dot active"></span> USB 掃描槍就緒
+            <span class="status-pill" id="netStatusPill">偵測中...</span>
             <span style="margin: 0 10px;">|</span>
             <span id="syncStatus">雲端同步中...</span>
         </div>
-        <div id="netStatus">網路狀態: 🟢 線上</div>
+        <div>
+            <span id="driveStatus">💿 已儲存本地備份</span>
+        </div>
     </div>
 
     <div style="display:flex; flex:1; overflow:hidden;">
@@ -99,7 +98,7 @@
         <div class="sidebar">
             <div class="cart-header">
                 <span>🛒 購物清單</span>
-                <button onclick="refreshStock()" style="background:none; border:none; color:white; font-size:12px; cursor:pointer;">同步庫存 🔄</button>
+                <button onclick="refreshStock()" style="background:none; border:none; color:white; font-size:12px; cursor:pointer;">同步 🔄</button>
             </div>
             
             <div class="cart-list" id="cartItems">
@@ -107,7 +106,6 @@
             </div>
 
             <div class="control-panel">
-                <!-- Step 2: 折扣 -->
                 <div class="step-section">
                     <span class="step-label">選擇折扣</span>
                     <div class="btn-grid" id="discGrid">
@@ -118,17 +116,15 @@
                     </div>
                 </div>
 
-                <!-- Step 3: 輪廓 -->
                 <div class="step-section">
-                    <span class="step-label">顧客性別</span>
+                    <span class="step-label">顧客分析</span>
                     <div class="btn-grid" id="genderGrid">
                         <button class="opt-btn active" onclick="setOpt('gender', '未知', this)">未知</button>
                         <button class="opt-btn" onclick="setOpt('gender', '男', this)">男</button>
                         <button class="opt-btn" onclick="setOpt('gender', '女', this)">女</button>
                         <button class="opt-btn" onclick="setOpt('gender', '多元', this)">多元</button>
                     </div>
-                    <span class="step-label" style="margin-top:8px;">年齡層分析</span>
-                    <div class="btn-grid" id="ageGrid">
+                    <div class="btn-grid" id="ageGrid" style="margin-top:5px;">
                         <button class="opt-btn" onclick="setOpt('age', '-20', this)">-20</button>
                         <button class="opt-btn" onclick="setOpt('age', '21-35', this)">21-35</button>
                         <button class="opt-btn" onclick="setOpt('age', '36-50', this)">36-50</button>
@@ -136,7 +132,6 @@
                     </div>
                 </div>
 
-                <!-- Step 4: 支付 -->
                 <div class="step-section" style="border-bottom:none;">
                     <span class="step-label">支付方式</span>
                     <div class="btn-grid" id="methodGrid">
@@ -148,14 +143,18 @@
                 </div>
             </div>
 
+            <!-- Drive 同步提示區 -->
+            <div class="drive-backup">
+                <span>備援: 離線數據檔案 (<span id="localCount">0</span>)</span>
+                <button onclick="downloadLogForDrive()" style="border:none; background:#1967d2; color:white; padding:2px 8px; border-radius:4px; cursor:pointer;">存至 Drive 資料匣</button>
+            </div>
+
             <div class="footer-section">
-                <div class="price-row"><span>小計 (原價)</span><span id="subTotal">$0</span></div>
-                <div class="price-row"><span>折扣金額</span><span id="discAmt" style="color:var(--danger)">-$0</span></div>
                 <div class="total-row">
                     <span style="color: #95a5a6; font-size: 14px;">應收總計</span>
                     <span class="total-val" id="finalTotal">$0</span>
                 </div>
-                <button class="btn-pay" onclick="handleCheckoutAction()">確認結帳並上傳</button>
+                <button class="btn-pay" onclick="handleCheckoutAction()">確認結帳</button>
                 <button onclick="clearAll()" style="width:100%; border:none; background:none; color:var(--danger); font-size:11px; margin-top:10px; cursor:pointer; text-decoration:underline;">清空重來</button>
             </div>
         </div>
@@ -163,45 +162,34 @@
 </div>
 
 <script>
-    // ==========================================
-    // ⚙️ 自定義配置區 (請在下方貼入您的網址)
-    // ==========================================
-    
-    // 1. Google Apps Script 網址
+    // --- 配置區 ---
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz9s2NUQupy7plDN-sRqQdbULRV5T5LE8xE4SYYUE_MR2vqT2O-bt1R5cwnOvhaYS5MYA/exec";
-    
-    // 2. LINE Pay 收款圖連結 (請替換為您下載的圖片 URL)
-    const LINE_PAY_QR_URL = "https://cdn.phototourl.com/uploads/2026-01-27-ba31b8a1-bf69-4f3e-813a-00a6698c7888.jpg"; 
-    
-    // 3. 銀行轉帳收款圖連結 (請替換為您的銀行 QR Code 或帳號圖 URL)
-    const BANK_TRANSFER_QR_URL = "https://cdn.phototourl.com/uploads/2026-01-27-c9f1da35-3509-4f2e-91cd-b6f729047400.jpg";
-    
-    // ==========================================
+    const LINE_PAY_QR = "https://example.com/your_linepay.png"; // 請換成您的圖片
+    const BANK_QR = "https://example.com/your_bank.png"; // 請換成您的圖片
 
     const PRODUCTS = [
-        { id: 1, barcode: "1001", cat: "📦 茶葉與禮盒", name: '文山包種茶', price: 300, stock: 0 },
-        { id: 2, barcode: "1002", cat: "📦 茶葉與禮盒", name: '蜜香紅茶', price: 350, stock: 0 },
-        { id: 3, barcode: "1003", cat: "📦 茶葉與禮盒", name: '紅烏龍', price: 450, stock: 0 },
-        { id: 4, barcode: "1004", cat: "📦 茶葉與禮盒", name: '凍頂烏龍', price: 350, stock: 0 },
-        { id: 13, barcode: "1013", cat: "📦 茶葉與禮盒", name: '焙香茶穗', price: 100, stock: 0 },
-        { id: 5, barcode: "1005", cat: "📦 茶葉與禮盒", name: '茶山漫遊禮盒', price: 1100, stock: 0 },
-        { id: 14, barcode: "1014", cat: "📦 茶葉與禮盒", name: '銀質包種禮盒', price: 1200, stock: 0 },
-        { id: 6, barcode: "1006", cat: "📦 茶葉與禮盒", name: '盒裝茶包(10入)', price: 250, stock: 0 },
-        { id: 7, barcode: "2007", cat: "🥤 現萃茶飲", name: '現萃-文山包種', price: 60, stock: 0 },
-        { id: 8, barcode: "2008", cat: "🥤 現萃茶飲", name: '現萃-蜜香紅茶', price: 60, stock: 0 },
-        { id: 11, barcode: "2011", cat: "🥤 現萃茶飲", name: '冷泡茶 (瓶)', price: 80, stock: 0 },
-        { id: 12, barcode: "9001", cat: "🛍️ 其他", name: '提袋/包材', price: 10, stock: 0 }
+        { id: 1, cat: "📦 茶葉與禮盒", name: '文山包種茶', price: 300, stock: 0 },
+        { id: 2, cat: "📦 茶葉與禮盒", name: '蜜香紅茶', price: 350, stock: 0 },
+        { id: 3, cat: "📦 茶葉與禮盒", name: '紅烏龍', price: 450, stock: 0 },
+        { id: 4, cat: "📦 茶葉與禮盒", name: '凍頂烏龍', price: 350, stock: 0 },
+        { id: 13, cat: "📦 茶葉與禮盒", name: '焙香茶穗', price: 100, stock: 0 },
+        { id: 5, cat: "📦 茶葉與禮盒", name: '茶山漫遊禮盒', price: 1100, stock: 0 },
+        { id: 14, cat: "📦 茶葉與禮盒", name: '銀質包種禮盒', price: 1200, stock: 0 },
+        { id: 6, cat: "📦 茶葉與禮盒", name: '盒裝茶包(10入)', price: 250, stock: 0 },
+        { id: 7, cat: "🥤 現萃茶飲", name: '現萃-文山包種', price: 60, stock: 0 },
+        { id: 8, cat: "🥤 現萃茶飲", name: '現萃-蜜香紅茶', price: 60, stock: 0 },
+        { id: 11, cat: "🥤 現萃茶飲", name: '冷泡茶 (瓶)', price: 80, stock: 0 },
+        { id: 12, cat: "🛍️ 其他", name: '提袋/包材', price: 10, stock: 0 }
     ];
 
     let cart = {};
     let state = { disc: 0, gender: '未知', age: '51+', method: '現金' };
     let syncQueue = [];
-    let barcodeBuffer = "";
+    let allHistory = []; // 用於生成 Drive 同步檔案
 
     window.onload = () => {
-        loadLocalData();
+        loadLocalStorage();
         renderProducts();
-        setupScanner();
         initNetMonitor();
         refreshStock();
     };
@@ -212,18 +200,20 @@
         t.style.display = 'block'; setTimeout(() => t.style.display='none', 3000);
     }
 
-    function setupScanner() {
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                if (barcodeBuffer.length > 0) {
-                    const p = PRODUCTS.find(x => x.barcode === barcodeBuffer);
-                    if(p) { addToCart(p.id); notify(`掃描成功: ${p.name}`); }
-                    barcodeBuffer = "";
-                }
-            } else if (e.key.length === 1) { barcodeBuffer += e.key; }
-            clearTimeout(window.scanT);
-            window.scanT = setTimeout(() => { barcodeBuffer = ""; }, 100);
-        });
+    // --- Google Drive 離線備援核心：下載 Log 檔案 ---
+    // 實務做法：下載一個 .csv 或 .json，並將其儲存在您電腦中掛載的 Google Drive 資料匣中
+    function downloadLogForDrive() {
+        if (allHistory.length === 0) return notify("目前尚無成交紀錄", true);
+        
+        const dataStr = JSON.stringify(allHistory, null, 2);
+        const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+        
+        const exportFileDefaultName = `POS_Backup_${new Date().toLocaleDateString()}.json`;
+        const linkElement = document.createElement('a');
+        linkElement.setAttribute('href', dataUri);
+        linkElement.setAttribute('download', exportFileDefaultName);
+        linkElement.click();
+        notify("💾 已生成備份檔，請存入 Google Drive 同步資料匣");
     }
 
     function setOpt(key, val, btn) {
@@ -244,13 +234,11 @@
             }
             const isOut = p.stock <= 0 && p.id < 20; 
             const lowStockClass = (p.stock > 0 && p.stock <= 5) ? 'low-stock' : '';
-
             grid.innerHTML += `
                 <div class="product-card ${isOut ? 'out-of-stock' : ''}" onclick="addToCart(${p.id})">
                     <span class="p-name">${p.name}</span>
                     <div>
-                        <span class="p-price">$${p.price}</span>
-                        <br>
+                        <span class="p-price">$${p.price}</span><br>
                         <span class="p-stock ${lowStockClass}">庫存: ${p.stock}</span>
                     </div>
                 </div>`;
@@ -259,11 +247,9 @@
 
     function addToCart(id) {
         const p = PRODUCTS.find(x => x.id === id);
-        const qtyInCart = cart[id]?.qty || 0;
-        if (p.id < 20 && qtyInCart + 1 > p.stock) {
-            return notify(`❌ 庫存不足 (剩餘 ${p.stock})`, true);
-        }
-        cart[id] = { ...p, qty: qtyInCart + 1 };
+        const qty = cart[id]?.qty || 0;
+        if (p.id < 20 && qty + 1 > p.stock) return notify(`❌ 庫存不足`, true);
+        cart[id] = { ...p, qty: qty + 1 };
         updateUI();
     }
 
@@ -271,41 +257,25 @@
         const list = document.getElementById('cartItems');
         const items = Object.values(cart);
         if(items.length === 0) {
-            list.innerHTML = `<div style="text-align:center; color:#bdc3c7; margin-top:50px;">請點選商品或掃描條碼</div>`;
-            document.getElementById('subTotal').innerText = "$0";
-            document.getElementById('discAmt').innerText = "-$0";
+            list.innerHTML = `<div style="text-align:center; color:#bdc3c7; margin-top:50px;">請先選擇商品</div>`;
             document.getElementById('finalTotal').innerText = "$0";
             return;
         }
         list.innerHTML = items.map(i => `<div class="cart-item"><span>${i.name}</span><b>x ${i.qty}</b></div>`).join('');
-        
         const sub = items.reduce((s, i) => s + (i.price * i.qty), 0);
         let final = sub;
-        let discAmt = 0;
-        if(state.disc > 0 && state.disc < 1) {
-            final = Math.round(sub * state.disc);
-            discAmt = sub - final;
-        } else if(state.disc < 0) {
-            discAmt = Math.abs(state.disc);
-            final = Math.max(0, sub - discAmt);
-        }
-        
-        document.getElementById('subTotal').innerText = "$" + sub;
-        document.getElementById('discAmt').innerText = "-$" + discAmt;
+        if(state.disc > 0 && state.disc < 1) final = Math.round(sub * state.disc);
+        else if(state.disc < 0) final = Math.max(0, sub + state.disc);
         document.getElementById('finalTotal').innerText = "$" + final;
     }
 
     function handleCheckoutAction() {
         const total = document.getElementById('finalTotal').innerText;
-        if(total === "$0") return notify("購物車是空的", true);
-
+        if(total === "$0") return notify("清單為空", true);
         if(state.method === 'LinePay' || state.method === '轉帳') {
-            document.getElementById('mTitle').innerText = state.method === 'LinePay' ? 'LINE Pay 收款' : '銀行轉帳資訊';
+            document.getElementById('mTitle').innerText = state.method === 'LinePay' ? 'LINE Pay' : '銀行轉帳';
+            document.getElementById('mQR').src = state.method === 'LinePay' ? LINE_PAY_QR : BANK_QR;
             document.getElementById('bankInfo').style.display = state.method === '轉帳' ? 'block' : 'none';
-            
-            // 根據支付方式動態載入圖片
-            document.getElementById('mQR').src = state.method === 'LinePay' ? LINE_PAY_QR_URL : BANK_TRANSFER_QR_URL;
-            
             document.getElementById('mPrice').innerText = total;
             document.getElementById('payModal').style.display = 'flex';
         } else {
@@ -316,26 +286,25 @@
     function submitOrder() {
         closeModal();
         const items = Object.values(cart);
-        const subtotal = parseInt(document.getElementById('subTotal').innerText.replace("$",""));
-        const discAmt = parseInt(document.getElementById('discAmt').innerText.replace("-$",""));
         const total = parseInt(document.getElementById('finalTotal').innerText.replace("$",""));
         
         const payload = {
             itemsString: items.map(i => `${i.name}x${i.qty}`).join(','),
             cartItems: items.map(i => ({id: i.id, qty: i.qty})),
-            originalTotal: subtotal,
-            discount: discAmt,
             finalTotal: total,
             method: state.method,
             gender: state.gender,
             age: state.age,
-            note: state.disc !== 0 ? `折扣模式:${state.disc}` : '',
             ts: Date.now()
         };
 
+        // 1. 存入佇列 (離線補傳用)
         syncQueue.push(payload);
-        saveLocalData();
-        notify("✅ 結帳成功，背景上傳中...");
+        // 2. 存入歷史紀錄 (Drive 備份用)
+        allHistory.push(payload);
+        
+        saveLocalStorage();
+        notify("✅ 已記錄交易");
         
         // 樂觀庫存更新
         items.forEach(item => {
@@ -345,24 +314,30 @@
 
         clearAll();
         renderProducts();
-        processQueue();
+        processQueue(); // 嘗試同步
     }
 
-    function loadLocalData() {
-        const q = localStorage.getItem('tea_pos_v6_queue');
+    // --- 離線持久化邏輯 ---
+    function loadLocalStorage() {
+        const q = localStorage.getItem('tea_pos_v_queue');
+        const h = localStorage.getItem('tea_pos_v_history');
         if(q) syncQueue = JSON.parse(q);
+        if(h) allHistory = JSON.parse(h);
         updateQueueUI();
     }
 
-    function saveLocalData() {
-        localStorage.setItem('tea_pos_v6_queue', JSON.stringify(syncQueue));
+    function saveLocalStorage() {
+        localStorage.setItem('tea_pos_v_queue', JSON.stringify(syncQueue));
+        localStorage.setItem('tea_pos_v_history', JSON.stringify(allHistory));
         updateQueueUI();
     }
 
     function updateQueueUI() {
         const el = document.getElementById('syncStatus');
+        const count = document.getElementById('localCount');
         el.innerText = syncQueue.length > 0 ? `待同步: ${syncQueue.length} 筆` : "雲端已同步";
         el.parentElement.style.color = syncQueue.length > 0 ? "var(--warning)" : "white";
+        count.innerText = allHistory.length;
     }
 
     async function processQueue() {
@@ -371,7 +346,7 @@
         try {
             await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(data) });
             syncQueue.shift();
-            saveLocalData();
+            saveLocalStorage();
             processQueue();
         } catch(e) {}
     }
@@ -386,14 +361,16 @@
     function initNetMonitor() {
         const up = () => {
             const on = navigator.onLine;
-            document.getElementById('netStatus').innerText = on ? "網路狀態: 🟢 線上" : "網路狀態: 🔴 離線";
+            const pill = document.getElementById('netStatusPill');
+            pill.innerText = on ? "🟢 線上模式" : "🔴 離線模式";
+            pill.className = `status-pill ${on ? 'online-pill' : 'offline-pill'}`;
             if(on) processQueue();
         };
         window.addEventListener('online', up); window.addEventListener('offline', up);
         up();
     }
 
-    function clearAll() { cart = {}; state.disc = 0; updateUI(); }
+    function clearAll() { cart = {}; updateUI(); }
     function closeModal() { document.getElementById('payModal').style.display = 'none'; }
 </script>
 
