@@ -131,7 +131,7 @@
                     </div>
                     <!-- 隱藏的自訂折扣輸入區 -->
                     <div class="custom-disc-box" id="customDiscBox">
-                        <input type="number" id="customDiscInput" placeholder="輸入折抵金額 (例如: 100)" min="0">
+                        <input type="number" id="customDiscInput" placeholder="輸入折抵金額 (例如: 100)" min="0" onkeydown="if(event.key==='Enter') applyCustomDisc()">
                         <button onclick="applyCustomDisc()">套用</button>
                     </div>
                 </div>
@@ -158,7 +158,6 @@
                         <button class="opt-btn active" onclick="setOpt('method', '現金', this)">現金</button>
                         <button class="opt-btn" onclick="setOpt('method', 'LinePay', this)">Line</button>
                         <button class="opt-btn" onclick="setOpt('method', '轉帳', this)">轉帳</button>
-                        <!-- 注意這裡原本有 setMethod，已統一為 setOpt 處理以防報錯 -->
                         <button class="opt-btn" onclick="setOpt('method', '信用卡', this)">刷卡</button>
                     </div>
                 </div>
@@ -212,13 +211,22 @@
     let syncQueue = [];
     let allHistory = []; 
     let barcodeBuffer = "";
+    
+    // 控制網路傳輸的狀態鎖
+    let isSyncing = false; 
+    let toastTimeout = null;
 
     window.onload = () => { loadData(); render(); initNet(); refreshStock(); setupUSB(); };
 
+    // 優化通知系統，防止計時器疊加導致閃退
     function notify(m, isErr = false) {
         const t = document.getElementById('toast');
-        t.innerText = m; t.style.background = isErr ? 'var(--danger)' : '#333';
-        t.style.display = 'block'; setTimeout(() => t.style.display='none', 3000);
+        t.innerText = m; 
+        t.style.background = isErr ? 'var(--danger)' : '#333';
+        t.style.display = 'block'; 
+        
+        if (toastTimeout) clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => t.style.display = 'none', 3000);
     }
 
     // USB 掃描槍邏輯
@@ -316,11 +324,13 @@
         let final = sub;
         let discAmt = 0;
         
-        // 判斷折扣類型 (小於1是折數，小於0是直接扣金額)
+        // 修正邏輯：折扣不可超過總額，避免產生負數結帳金
         if(state.disc > 0 && state.disc < 1) {
-            final = Math.round(sub * state.disc); discAmt = sub - final;
+            final = Math.round(sub * state.disc); 
+            discAmt = sub - final;
         } else if(state.disc < 0) {
-            discAmt = Math.abs(state.disc); final = Math.max(0, sub - discAmt);
+            discAmt = Math.min(Math.abs(state.disc), sub); 
+            final = sub - discAmt;
         }
         
         document.getElementById('subTotal').innerText = "$" + sub;
@@ -357,15 +367,17 @@
             notify("請輸入大於0的有效金額", true);
             return;
         }
-        // 在目前的架構下，我們將自訂扣除金額存為負數（例如：輸入 100 則 state.disc = -100）
+        // 在目前的架構下，我們將自訂扣除金額存為負數
         state.disc = -Math.abs(inputVal);
         updateUI();
         notify(`✅ 已應用折抵金額: $${inputVal}`);
+        // 可選：套用後讓輸入框失去焦點以利繼續掃描
+        document.getElementById('customDiscInput').blur();
     }
 
     function handlePayAction() {
         const total = document.getElementById('finalTotal').innerText;
-        if(total === "$0") return notify("清單為空", true);
+        if(total === "$0") return notify("清單為空或金額為0", true);
         
         if(state.method === 'LinePay' || state.method === '轉帳') {
             document.getElementById('mTitle').innerText = state.method === 'LinePay' ? 'LINE Pay 收款' : '銀行轉帳資訊';
@@ -411,11 +423,18 @@
         updateQueue(); 
     }
     
+    // 優化：增加Try-Catch防止舊緩存損毀導致系統崩潰
     function loadData() { 
-        const q = localStorage.getItem('pos_v11_q'); 
-        const h = localStorage.getItem('pos_v11_h');
-        if(q) syncQueue = JSON.parse(q); 
-        if(h) allHistory = JSON.parse(h);
+        try {
+            const q = localStorage.getItem('pos_v11_q'); 
+            const h = localStorage.getItem('pos_v11_h');
+            if(q) syncQueue = JSON.parse(q); 
+            if(h) allHistory = JSON.parse(h);
+        } catch(e) {
+            console.error("緩存資料解析錯誤，已重置本地列隊");
+            syncQueue = [];
+            allHistory = [];
+        }
         updateQueue(); 
     }
 
@@ -426,13 +445,22 @@
         document.getElementById('localCount').innerText = syncQueue.length;
     }
 
+    // 優化：加入isSyncing鎖，防止網路不穩時重複送出API造成Google Sheets計算錯誤
     async function processQueue() {
-        if(!navigator.onLine || syncQueue.length === 0) return;
+        if(!navigator.onLine || syncQueue.length === 0 || isSyncing) return;
+        
+        isSyncing = true;
         const data = syncQueue[0];
         try {
             await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(data) });
-            syncQueue.shift(); saveData(); processQueue();
-        } catch(e) {}
+            syncQueue.shift(); 
+            saveData(); 
+            isSyncing = false;
+            processQueue(); // 遞迴處理下一筆
+        } catch(e) {
+            isSyncing = false;
+            console.error("同步失敗，稍後重試");
+        }
     }
 
     function refreshStock() {
@@ -454,10 +482,8 @@
         window.addEventListener('online', up); window.addEventListener('offline', up); up();
     }
 
-    // 改良的清空邏輯：將 UI 同步切回預設狀態
     function clearAll() { 
         cart = {}; 
-        // 重置為預設：無折扣
         setOpt('disc', 0, document.querySelector('#discGrid .opt-btn:nth-child(1)'));
         document.getElementById('customDiscInput').value = '';
         updateUI(); 
