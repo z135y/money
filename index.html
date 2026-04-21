@@ -122,11 +122,12 @@
             <div class="control-panel">
                 <div class="step-section">
                     <span class="step-label">1. 折扣選取</span>
-                    <div class="btn-grid" id="discGrid">
+                    <div class="btn-grid" id="discGrid" style="grid-template-columns: repeat(3, 1fr);">
                         <button class="opt-btn active" onclick="setOpt('disc', 0, this)">無</button>
                         <button class="opt-btn" onclick="setOpt('disc', 0.95, this)">95折</button>
                         <button class="opt-btn" onclick="setOpt('disc', 0.8, this)">8折</button>
-                        <!-- 新增自訂按鈕 -->
+                        <button class="opt-btn" onclick="setOpt('disc', 'sample', this)">茶樣</button>
+                        <button class="opt-btn" onclick="setOpt('disc', 'pr', this)">公關</button>
                         <button class="opt-btn" onclick="toggleCustomDisc(this)">自訂</button>
                     </div>
                     <!-- 隱藏的自訂折扣輸入區 -->
@@ -324,8 +325,11 @@
         let final = sub;
         let discAmt = 0;
         
-        // 修正邏輯：折扣不可超過總額，避免產生負數結帳金
-        if(state.disc > 0 && state.disc < 1) {
+        // 修正邏輯：支援茶樣與公關(100%抵扣)，以及折扣不可超過總額
+        if (state.disc === 'sample' || state.disc === 'pr') {
+            final = 0;
+            discAmt = sub;
+        } else if(state.disc > 0 && state.disc < 1) {
             final = Math.round(sub * state.disc); 
             discAmt = sub - final;
         } else if(state.disc < 0) {
@@ -376,8 +380,15 @@
     }
 
     function handlePayAction() {
+        if(Object.keys(cart).length === 0) return notify("購物清單為空", true);
+        
         const total = document.getElementById('finalTotal').innerText;
-        if(total === "$0") return notify("清單為空或金額為0", true);
+        
+        // 若應收為 $0 (例如選取茶樣、公關，或自訂折扣全額扣抵)，跳過支付彈窗直接結帳
+        if(total === "$0") {
+            executeFinalSync();
+            return;
+        }
         
         if(state.method === 'LinePay' || state.method === '轉帳') {
             document.getElementById('mTitle').innerText = state.method === 'LinePay' ? 'LINE Pay 收款' : '銀行轉帳資訊';
@@ -394,6 +405,13 @@
         const subtotal = items.reduce((s, i) => s + (i.price * i.qty), 0);
         const total = parseInt(document.getElementById('finalTotal').innerText.replace("$",""));
         
+        // 整理傳送至後端的備註資訊
+        let noteStr = '';
+        if (state.disc === 'sample') noteStr = '類型:茶樣(全額折抵)';
+        else if (state.disc === 'pr') noteStr = '類型:公關(全額折抵)';
+        else if (state.disc > 0 && state.disc < 1) noteStr = `折扣:${state.disc * 10}折`;
+        else if (state.disc < 0) noteStr = `折扣:自訂折抵$${Math.abs(state.disc)}`;
+
         const payload = {
             itemsString: items.map(i => `${i.name}x${i.qty}`).join(','),
             cartItems: items.map(i => ({id: i.id, qty: i.qty})),
@@ -403,7 +421,7 @@
             method: state.method,
             gender: state.gender,
             age: state.age,
-            note: state.disc !== 0 ? `折扣:${state.disc}` : '',
+            note: noteStr,
             ts: Date.now()
         };
         syncQueue.push(payload); 
