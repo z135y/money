@@ -48,6 +48,12 @@
         .opt-btn { padding: 8px 0; font-size: 11px; border: 1px solid #eee; background: #f9f9f9; border-radius: 6px; cursor: pointer; transition: 0.1s; text-align: center; }
         .opt-btn.active { background: var(--primary); color: white; border-color: var(--primary); font-weight: bold; }
 
+        /* 自訂折扣輸入區 */
+        .custom-disc-box { display: none; margin-top: 8px; gap: 5px; }
+        .custom-disc-box input { flex: 1; padding: 6px 10px; border: 1px solid #dcdde1; border-radius: 6px; font-size: 12px; outline: none; }
+        .custom-disc-box input:focus { border-color: var(--primary); }
+        .custom-disc-box button { padding: 6px 12px; background: var(--primary); color: white; border: none; border-radius: 6px; font-size: 12px; cursor: pointer; }
+
         .footer-section { padding: 20px; background: #fafafa; border-top: 1px solid #eee; }
         .price-row { display: flex; justify-content: space-between; font-size: 13px; color: #7f8c8d; margin-bottom: 5px; }
         .total-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
@@ -63,7 +69,7 @@
         .qr-wrapper { width: 250px; height: 250px; margin: 15px auto; background: white; display: flex; align-items: center; justify-content: center; border-radius: 12px; border: 1px solid #eee; overflow: hidden; }
         .qr-wrapper img { width: 100%; height: 100%; object-fit: contain; }
 
-        #toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); padding: 12px 25px; border-radius: 30px; color: white; display: none; z-index: 11000; font-size: 14px; }
+        #toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); padding: 12px 25px; border-radius: 30px; color: white; display: none; z-index: 11000; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
 
         @media (max-width: 768px) { body { flex-direction: column; } .sidebar { min-width: 100%; height: 60vh; } }
     </style>
@@ -120,7 +126,13 @@
                         <button class="opt-btn active" onclick="setOpt('disc', 0, this)">無</button>
                         <button class="opt-btn" onclick="setOpt('disc', 0.95, this)">95折</button>
                         <button class="opt-btn" onclick="setOpt('disc', 0.8, this)">8折</button>
-                        <button class="opt-btn" onclick="setOpt('disc', -50, this)">-50</button>
+                        <!-- 新增自訂按鈕 -->
+                        <button class="opt-btn" onclick="toggleCustomDisc(this)">自訂</button>
+                    </div>
+                    <!-- 隱藏的自訂折扣輸入區 -->
+                    <div class="custom-disc-box" id="customDiscBox">
+                        <input type="number" id="customDiscInput" placeholder="輸入折抵金額 (例如: 100)" min="0">
+                        <button onclick="applyCustomDisc()">套用</button>
                     </div>
                 </div>
 
@@ -146,7 +158,8 @@
                         <button class="opt-btn active" onclick="setOpt('method', '現金', this)">現金</button>
                         <button class="opt-btn" onclick="setOpt('method', 'LinePay', this)">Line</button>
                         <button class="opt-btn" onclick="setOpt('method', '轉帳', this)">轉帳</button>
-                        <button class="opt-btn" onclick="setMethod('信用卡', this)">刷卡</button>
+                        <!-- 注意這裡原本有 setMethod，已統一為 setOpt 處理以防報錯 -->
+                        <button class="opt-btn" onclick="setOpt('method', '信用卡', this)">刷卡</button>
                     </div>
                 </div>
             </div>
@@ -173,13 +186,10 @@
 <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz9s2NUQupy7plDN-sRqQdbULRV5T5LE8xE4SYYUE_MR2vqT2O-bt1R5cwnOvhaYS5MYA/exec";
     
-    // 支付圖片配置
-  // 1. 修正圖片字串：確保 base64 後面是「半形逗號 ,」
-    // 這裡已將你提供的 LinePay Base64 字串修正格式
-    const LINE_PAY_IMG = "data:image/jpeg;base64,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) no-repeat center center/contain;"
+    // 支付圖片配置保留原始資料
+    const LINE_PAY_IMG = "data:image/jpeg;base64,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";
+    const BANK_TRANSFER_IMG = "data:image/jpeg;base64,/9j/4QBYRXhpZgAATU0AKgAAAAgABAEAAAQAAAABAAACYQEBAAQAAAABAAACX4dpAAQAAAABAAAAPgESAAQAAAABAAAAAAAAAAAAAZIIAAQAAAABAAAAAAAAAAD/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIfIiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/2wBDAQoLCw4NDhwQEBw7KCIoOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozv/wAARCAJfAmEDASIAAhEBAxEB/8QAHAAAAwEBAQEBAQAAAAAAAAAAAAABAgMEBQYH/8QAUBAAAQMCAgQEEQoFAwMFAQEAAQACAwQFBhEHEiExE1GR0RQVFhciNTZBVFVhcXJzgbHBMjQ3UlODlKGz4SNCkpPwM6LxJEViJUNjZYInJv/EABsBAQEBAAMBAQAAAAAAAAAAAAAAAwQFBgIB/8QALBEBAAICAQQBAwMDBQAAAAAAAAECAxEEBIRHUlORIjEzUWEyQRUjQmKx0f/aAAwDAQACEQMRAD8AI9HWH7LXYFt1TV2egqJn8LrSS0zHudlK8DMkZ7gES9SuHPEFs/Bx8y5WjH6PbZ97+q9Ycb4rfh2JzmucMm57FZR2+pXDniC2fg4+ZTqVw54gtn4OPmSm68U/2knIVOvFP9pJyFNhs9SuHPEFs/Bx8ynUrhzxBbPwcfMlN14p/tJOQqdeKf7knIU2Gz1K4c8QWz8HHzKdSuHPEFs/Bx8ypuvFP9pJyFTrxT9pJyFNhs9SuHPEFs/Bx8ynUrhzxBbPwcfMlN14p/tJOQqdeKf7JOQpsNnqVw54gtn4OPmU6lcOeILZ+Dj5ly8A4ldie";
     
-    // 銀行轉帳範例 (目前維持原樣)
-    const BANK_TRANSFER_IMG = "data:image/jpeg;base64,/9j/4QBYRXhpZgAATU0AKgAAAAgABAEAAAQAAAABAAACYQEBAAQAAAABAAACX4dpAAQAAAABAAAAPgESAAQAAAABAAAAAAAAAAAAAZIIAAQAAAABAAAAAAAAAAD/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIfIiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/2wBDAQoLCw4NDhwQEBw7KCIoOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozv/wAARCAJfAmEDASIAAhEBAxEB/8QAHAAAAwEBAQEBAQAAAAAAAAAAAAABAgMEBQYH/8QAUBAAAQMCAgQEEQoFAwMFAQEAAQACAwQFBhEHEiExE1GR0RQVFhciNTZBVFVhcXJzgbHBMjQ3UlODlKGz4SNCkpPwM6LxJEViJUNjZYInJv/EABsBAQEBAAMBAQAAAAAAAAAAAAAAAwQFBgIB/8QALBEBAAICAQQBAwMDBQAAAAAAAAECAxEEBIRHUlORIjEzUWEyQRUjQmKx0f/aAAwDAQACEQMRAD8AI9HWH7LXYFt1TV2egqJn8LrSS0zHudlK8DMkZ7gES9SuHPEFs/Bx8y5WjH6PbZ97+q9Ycb4rfh2JzmucMm57FZR2+pXDniC2fg4+ZTqVw54gtn4OPmSm68U/2knIVOvFP9pJyFNhs9SuHPEFs/Bx8ynUrhzxBbPwcfMlN14p/tJOQqdeKf7knIU2Gz1K4c8QWz8HHzKdSuHPEFs/Bx8ypuvFP9pJyFTrxT9pJyFNhs9SuHPEFs/Bx8ynUrhzxBbPwcfMlN14p/tJOQqdeKf7JOQpsNnqVw54gtn4OPmU6lcOeILZ+Dj5ly8A4ldie;"
     const PRODUCTS = [
         { id: 1, barcode: "1001", cat: "📦 茶葉與禮盒", name: '文山包種茶', price: 300, stock: 0 },
          { id: 16, barcode: "1016", cat: "📦 茶葉與禮盒", name: '枳子-文山包種茶', price: 250, stock: 0 },
@@ -214,6 +224,9 @@
     // USB 掃描槍邏輯
     function setupUSB() {
         document.addEventListener('keydown', (e) => {
+            // 如果焦點在輸入框內，不要觸發條碼邏輯
+            if(document.activeElement.tagName === 'INPUT') return;
+
             if (e.key === 'Enter') {
                 if (barcodeBuffer.length > 0) {
                     const p = PRODUCTS.find(x => x.barcode === barcodeBuffer);
@@ -266,7 +279,6 @@
         cart[id] = { ...p, qty: qty + 1 }; updateUI();
     }
 
-    // ✨ 新增：結帳區個別刪除功能
     function removeFromCart(id) {
         if (cart[id]) {
             if (cart[id].qty > 1) {
@@ -289,7 +301,6 @@
             return;
         }
         
-        // ✨ 修改：加入刪除鍵 (btn-del-item)
         list.innerHTML = items.map(i => `
             <div class="cart-item">
                 <div style="flex:1;">
@@ -304,6 +315,8 @@
         const sub = items.reduce((s, i) => s + (i.price * i.qty), 0);
         let final = sub;
         let discAmt = 0;
+        
+        // 判斷折扣類型 (小於1是折數，小於0是直接扣金額)
         if(state.disc > 0 && state.disc < 1) {
             final = Math.round(sub * state.disc); discAmt = sub - final;
         } else if(state.disc < 0) {
@@ -319,7 +332,35 @@
         state[k] = v;
         const g = k === 'disc' ? 'discGrid' : k === 'gender' ? 'genderGrid' : k === 'age' ? 'ageGrid' : 'methodGrid';
         document.querySelectorAll(`#${g} .opt-btn`).forEach(b => b.classList.remove('active'));
-        btn.classList.add('active'); updateUI();
+        btn.classList.add('active'); 
+        
+        // 如果是選擇固定的折扣選項，隱藏自訂輸入框
+        if (k === 'disc') {
+            document.getElementById('customDiscBox').style.display = 'none';
+        }
+        updateUI();
+    }
+
+    // 顯示自訂折扣輸入區塊
+    function toggleCustomDisc(btn) {
+        document.querySelectorAll('#discGrid .opt-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const customBox = document.getElementById('customDiscBox');
+        customBox.style.display = 'flex';
+        document.getElementById('customDiscInput').focus();
+    }
+
+    // 應用自訂折扣的固定金額
+    function applyCustomDisc() {
+        const inputVal = parseFloat(document.getElementById('customDiscInput').value);
+        if (isNaN(inputVal) || inputVal < 0) {
+            notify("請輸入大於0的有效金額", true);
+            return;
+        }
+        // 在目前的架構下，我們將自訂扣除金額存為負數（例如：輸入 100 則 state.disc = -100）
+        state.disc = -Math.abs(inputVal);
+        updateUI();
+        notify(`✅ 已應用折抵金額: $${inputVal}`);
     }
 
     function handlePayAction() {
@@ -397,6 +438,8 @@
     function refreshStock() {
         fetch(SCRIPT_URL).then(r => r.json()).then(d => {
             PRODUCTS.forEach(p => { if(d[p.id] !== undefined) p.stock = d[p.id]; }); render();
+        }).catch(e => {
+            console.log("無法獲取庫存 (可能無網路)");
         });
     }
 
@@ -411,19 +454,17 @@
         window.addEventListener('online', up); window.addEventListener('offline', up); up();
     }
 
-    function clearAll() { cart = {}; state.disc = 0; updateUI(); }
+    // 改良的清空邏輯：將 UI 同步切回預設狀態
+    function clearAll() { 
+        cart = {}; 
+        // 重置為預設：無折扣
+        setOpt('disc', 0, document.querySelector('#discGrid .opt-btn:nth-child(1)'));
+        document.getElementById('customDiscInput').value = '';
+        updateUI(); 
+    }
+    
     function closeModal() { document.getElementById('payModal').style.display = 'none'; }
 </script>
 
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
