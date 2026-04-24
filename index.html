@@ -36,10 +36,13 @@
         .sidebar { flex: 3; background: white; display: flex; flex-direction: column; border-left: 1px solid #dcdde1; min-width: 360px; box-shadow: -5px 0 15px rgba(0,0,0,0.03); }
         .cart-header { padding: 15px; background: var(--primary); color: white; display: flex; justify-content: space-between; align-items: center; font-weight: bold; }
         .cart-list { flex: 1; overflow-y: auto; padding: 10px; border-bottom: 1px solid #f1f2f6; }
-        .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 10px; border-bottom: 1px solid #f9f9f9; font-size: 14px; }
+        .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 10px; border-bottom: 1px solid #f9f9f9; font-size: 14px; border-radius: 8px; }
         
-        /* 結帳區刪除鍵樣式 */
-        .btn-del-item { color: #bdc3c7; cursor: pointer; font-size: 20px; font-weight: bold; padding: 0 5px; transition: color 0.2s; user-select: none; }
+        /* 單品操作 UI 樣式 */
+        .item-type-select { font-size: 11px; padding: 2px 5px; border: 1px solid #bdc3c7; border-radius: 4px; background: white; outline: none; cursor: pointer; color: var(--primary); font-weight: bold; }
+        .qty-btn { background: #ecf0f1; border: none; border-radius: 4px; width: 24px; height: 24px; font-weight: bold; cursor: pointer; color: var(--primary); display: flex; align-items: center; justify-content: center; }
+        .qty-btn:active { background: #bdc3c7; }
+        .btn-del-item { color: #bdc3c7; cursor: pointer; font-size: 20px; font-weight: bold; padding: 0 5px; margin-left: 5px; transition: color 0.2s; user-select: none; }
         .btn-del-item:hover { color: var(--danger); }
 
         .step-section { padding: 10px 15px; border-bottom: 1px solid #f1f2f6; }
@@ -121,13 +124,11 @@
 
             <div class="control-panel">
                 <div class="step-section">
-                    <span class="step-label">1. 折扣選取</span>
-                    <div class="btn-grid" id="discGrid" style="grid-template-columns: repeat(3, 1fr);">
+                    <span class="step-label">1. 整單折扣選取 (不含茶樣/公關品)</span>
+                    <div class="btn-grid" id="discGrid">
                         <button class="opt-btn active" onclick="setOpt('disc', 0, this)">無</button>
                         <button class="opt-btn" onclick="setOpt('disc', 0.95, this)">95折</button>
                         <button class="opt-btn" onclick="setOpt('disc', 0.8, this)">8折</button>
-                        <button class="opt-btn" onclick="setOpt('disc', 'sample', this)">茶樣</button>
-                        <button class="opt-btn" onclick="setOpt('disc', 'pr', this)">公關</button>
                         <button class="opt-btn" onclick="toggleCustomDisc(this)">自訂</button>
                     </div>
                     <!-- 隱藏的自訂折扣輸入區 -->
@@ -171,7 +172,7 @@
 
             <div class="footer-section">
                 <div class="price-row"><span>小計 (原價)</span><span id="subTotal">$0</span></div>
-                <div class="price-row"><span>折扣金額</span><span id="discAmt" style="color:var(--danger)">-$0</span></div>
+                <div class="price-row"><span>折抵總計 (含贈品/折扣)</span><span id="discAmt" style="color:var(--danger)">-$0</span></div>
                 <div class="total-row">
                     <span style="color: #95a5a6; font-size: 14px;">應收總計</span>
                     <span class="total-val" id="finalTotal">$0</span>
@@ -186,7 +187,6 @@
 <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwWWTZNNbSesSrb3WqHP1OrnwQLVPj5zzAV3XlDqDcocqR9kWzcwYl9hBFQcFKo0Hj84A/exec";
     
-    // 支付圖片配置保留原始資料
     const LINE_PAY_IMG = "data:image/jpeg;base64,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";
     const BANK_TRANSFER_IMG = "data:image/jpeg;base64,/9j/4QBYRXhpZgAATU0AKgAAAAgABAEAAAQAAAABAAACYQEBAAQAAAABAAACX4dpAAQAAAABAAAAPgESAAQAAAABAAAAAAAAAAAAAZIIAAQAAAABAAAAAAAAAAD/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIfIiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/2wBDAQoLCw4NDhwQEBw7KCIoOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozv/wAARCAJfAmEDASIAAhEBAxEB/8QAHAAAAwEBAQEBAQAAAAAAAAAAAAABAgMEBQYH/8QAUBAAAQMCAgQEEQoFAwMFAQEAAQACAwQFBhEHEiExE1GR0RQVFhciNTZBVFVhcXJzgbHBMjQ3UlODlKGz4SNCkpPwM6LxJEViJUNjZYInJv/EABsBAQEBAAMBAQAAAAAAAAAAAAAAAwQFBgIB/8QALBEBAAICAQQBAwMDBQAAAAAAAAECAxEEBIRHUlORIjEzUWEyQRUjQmKx0f/aAAwDAQACEQMRAD8AI9HWH7LXYFt1TV2egqJn8LrSS0zHudlK8DMkZ7gES9SuHPEFs/Bx8y5WjH6PbZ97+q9Ycb4rfh2JzmucMm57FZR2+pXDniC2fg4+ZTqVw54gtn4OPmSm68U/2knIVOvFP9pJyFNhs9SuHPEFs/Bx8ynUrhzxBbPwcfMlN14p/tJOQqdeKf7knIU2Gz1K4c8QWz8HHzKdSuHPEFs/Bx8ypuvFP9pJyFTrxT9pJyFNhs9SuHPEFs/Bx8ynUrhzxBbPwcfMlN14p/tJOQqdeKf7JOQpsNnqVw54gtn4OPmU6lcOeILZ+Dj5ly8A4ldie";
     
@@ -213,13 +213,11 @@
     let allHistory = []; 
     let barcodeBuffer = "";
     
-    // 控制網路傳輸的狀態鎖
     let isSyncing = false; 
     let toastTimeout = null;
 
     window.onload = () => { loadData(); render(); initNet(); refreshStock(); setupUSB(); };
 
-    // 優化通知系統，防止計時器疊加導致閃退
     function notify(m, isErr = false) {
         const t = document.getElementById('toast');
         t.innerText = m; 
@@ -230,10 +228,8 @@
         toastTimeout = setTimeout(() => t.style.display = 'none', 3000);
     }
 
-    // USB 掃描槍邏輯
     function setupUSB() {
         document.addEventListener('keydown', (e) => {
-            // 如果焦點在輸入框內，不要觸發條碼邏輯
             if(document.activeElement.tagName === 'INPUT') return;
 
             if (e.key === 'Enter') {
@@ -248,7 +244,6 @@
         });
     }
 
-    // Google Drive 手動備份
     function downloadLogForDrive() {
         if (allHistory.length === 0) return notify("無交易紀錄可備份", true);
         const dataStr = JSON.stringify(allHistory, null, 2);
@@ -281,27 +276,59 @@
         });
     }
 
+    // 業界標準：獨立明細化 (Line-Item Independence)
+    // 每次點擊/掃描都產生獨立的 Unique Key，互不合併
     function addToCart(id) {
         const p = PRODUCTS.find(x => x.id === id);
-        const qty = cart[id]?.qty || 0;
-        if (p.id < 20 && qty + 1 > p.stock) return notify(`❌ 庫存不足`, true);
-        cart[id] = { ...p, qty: qty + 1 }; updateUI();
+        // 使用時間戳記與隨機碼產生全域唯一的 Cart Key
+        const cartKey = `${id}_${Date.now()}_${Math.floor(Math.random()*1000)}`;
+        
+        // 跨明細計算該商品目前在購物車中的總和，以確保防呆庫存判定正確
+        const currentTotalQty = Object.values(cart).filter(item => item.id === id).reduce((sum, item) => sum + item.qty, 0);
+
+        if (p.id < 20 && currentTotalQty + 1 > p.stock) return notify(`❌ 庫存不足`, true);
+
+        // 每一次新增都是一筆獨立的明細 (qty 固定起始為 1)
+        cart[cartKey] = { ...p, qty: 1, type: 'normal', cartKey: cartKey };
+        updateUI();
     }
 
-    function removeFromCart(id) {
-        if (cart[id]) {
-            if (cart[id].qty > 1) {
-                cart[id].qty--;
-            } else {
-                delete cart[id];
-            }
-            updateUI();
+    // 單一獨立明細的狀態切換 (正常、茶樣、公關) 
+    function changeItemType(cartKey, newType) {
+        if (!cart[cartKey]) return;
+        
+        // 由於每一列都是獨立的，直接更改其屬性即可，不再需要合併至其他 Key
+        cart[cartKey].type = newType;
+        updateUI();
+    }
+
+    // 單項明細內的數量增減
+    function updateQty(cartKey, delta) {
+        if (!cart[cartKey]) return;
+        
+        const item = cart[cartKey];
+        const p = PRODUCTS.find(x => x.id === item.id);
+
+        if (delta > 0) {
+            const currentTotalQty = Object.values(cart).filter(x => x.id === item.id).reduce((sum, x) => sum + x.qty, 0);
+            if (p.id < 20 && currentTotalQty + 1 > p.stock) return notify(`❌ 庫存不足`, true);
+            cart[cartKey].qty += 1;
+        } else {
+            cart[cartKey].qty -= 1;
+            if (cart[cartKey].qty <= 0) delete cart[cartKey];
         }
+        updateUI();
+    }
+
+    function removeFromCart(cartKey) {
+        delete cart[cartKey];
+        updateUI();
     }
 
     function updateUI() {
         const list = document.getElementById('cartItems');
         const items = Object.values(cart);
+        
         if(items.length === 0) {
             list.innerHTML = `<div style="text-align:center; color:#bdc3c7; margin-top:50px;">尚未選擇商品</div>`;
             document.getElementById('subTotal').innerText = "$0";
@@ -311,34 +338,55 @@
         }
         
         list.innerHTML = items.map(i => `
-            <div class="cart-item">
+            <div class="cart-item" style="background:${i.type!=='normal'?'#fff9e6':'transparent'};">
                 <div style="flex:1;">
-                    <span style="font-weight:bold;">${i.name}</span>
+                    <div style="font-weight:bold; color:${i.type!=='normal'?'var(--warning)':'inherit'};">${i.name}</div>
+                    <div style="display:flex; gap:8px; margin-top:6px; align-items:center;">
+                        <select class="item-type-select" onchange="changeItemType('${i.cartKey}', this.value)">
+                            <option value="normal" ${i.type==='normal'?'selected':''}>正常</option>
+                            <option value="sample" ${i.type==='sample'?'selected':''}>茶樣</option>
+                            <option value="pr" ${i.type==='pr'?'selected':''}>公關</option>
+                        </select>
+                        <span style="font-size:11px; color:#7f8c8d; text-decoration:${i.type!=='normal'?'line-through':''};">$${i.price}/件</span>
+                    </div>
                 </div>
-                <div style="display:flex; align-items:center;">
-                    <b style="color:var(--primary); margin-right:15px;">x ${i.qty}</b>
-                    <span class="btn-del-item" onclick="removeFromCart(${i.id})" title="減少數量或刪除">×</span>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <button class="qty-btn" onclick="updateQty('${i.cartKey}', -1)">-</button>
+                    <b style="color:var(--primary); width:15px; text-align:center;">${i.qty}</b>
+                    <button class="qty-btn" onclick="updateQty('${i.cartKey}', 1)">+</button>
+                    <span class="btn-del-item" onclick="removeFromCart('${i.cartKey}')" title="刪除">×</span>
                 </div>
             </div>`).join('');
 
-        const sub = items.reduce((s, i) => s + (i.price * i.qty), 0);
-        let final = sub;
-        let discAmt = 0;
+        let sub = 0;
+        let normalSub = 0;
+        let itemDiscAmt = 0;
+
+        items.forEach(i => {
+            const lineTotal = i.price * i.qty;
+            sub += lineTotal;
+            if (i.type === 'normal') {
+                normalSub += lineTotal;
+            } else {
+                itemDiscAmt += lineTotal; 
+            }
+        });
+
+        let final = normalSub;
+        let globalDiscAmt = 0;
         
-        // 修正邏輯：支援茶樣與公關(100%抵扣)，以及折扣不可超過總額
-        if (state.disc === 'sample' || state.disc === 'pr') {
-            final = 0;
-            discAmt = sub;
-        } else if(state.disc > 0 && state.disc < 1) {
-            final = Math.round(sub * state.disc); 
-            discAmt = sub - final;
+        if(state.disc > 0 && state.disc < 1) {
+            final = Math.round(normalSub * state.disc); 
+            globalDiscAmt = normalSub - final;
         } else if(state.disc < 0) {
-            discAmt = Math.min(Math.abs(state.disc), sub); 
-            final = sub - discAmt;
+            globalDiscAmt = Math.min(Math.abs(state.disc), normalSub); 
+            final = normalSub - globalDiscAmt;
         }
         
+        const totalDiscAmt = itemDiscAmt + globalDiscAmt;
+
         document.getElementById('subTotal').innerText = "$" + sub;
-        document.getElementById('discAmt').innerText = "-$" + discAmt;
+        document.getElementById('discAmt').innerText = "-$" + totalDiscAmt;
         document.getElementById('finalTotal').innerText = "$" + final;
     }
 
@@ -348,14 +396,12 @@
         document.querySelectorAll(`#${g} .opt-btn`).forEach(b => b.classList.remove('active'));
         btn.classList.add('active'); 
         
-        // 如果是選擇固定的折扣選項，隱藏自訂輸入框
         if (k === 'disc') {
             document.getElementById('customDiscBox').style.display = 'none';
         }
         updateUI();
     }
 
-    // 顯示自訂折扣輸入區塊
     function toggleCustomDisc(btn) {
         document.querySelectorAll('#discGrid .opt-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
@@ -364,18 +410,15 @@
         document.getElementById('customDiscInput').focus();
     }
 
-    // 應用自訂折扣的固定金額
     function applyCustomDisc() {
         const inputVal = parseFloat(document.getElementById('customDiscInput').value);
         if (isNaN(inputVal) || inputVal < 0) {
             notify("請輸入大於0的有效金額", true);
             return;
         }
-        // 在目前的架構下，我們將自訂扣除金額存為負數
         state.disc = -Math.abs(inputVal);
         updateUI();
         notify(`✅ 已應用折抵金額: $${inputVal}`);
-        // 可選：套用後讓輸入框失去焦點以利繼續掃描
         document.getElementById('customDiscInput').blur();
     }
 
@@ -384,7 +427,6 @@
         
         const total = document.getElementById('finalTotal').innerText;
         
-        // 若應收為 $0 (例如選取茶樣、公關，或自訂折扣全額扣抵)，跳過支付彈窗直接結帳
         if(total === "$0") {
             executeFinalSync();
             return;
@@ -405,16 +447,29 @@
         const subtotal = items.reduce((s, i) => s + (i.price * i.qty), 0);
         const total = parseInt(document.getElementById('finalTotal').innerText.replace("$",""));
         
-        // 整理傳送至後端的備註資訊
+        const typeMap = { normal: '', sample: '(茶樣)', pr: '(公關)' };
+        const itemsStr = items.map(i => `${i.name}${typeMap[i.type]}x${i.qty}`).join(',');
+
         let noteStr = '';
-        if (state.disc === 'sample') noteStr = '類型:茶樣(全額折抵)';
-        else if (state.disc === 'pr') noteStr = '類型:公關(全額折抵)';
-        else if (state.disc > 0 && state.disc < 1) noteStr = `折扣:${state.disc * 10}折`;
-        else if (state.disc < 0) noteStr = `折扣:自訂折抵$${Math.abs(state.disc)}`;
+        if (state.disc > 0 && state.disc < 1) noteStr = `整單折扣:${state.disc * 10}折`;
+        else if (state.disc < 0) noteStr = `整單折抵:$${Math.abs(state.disc)}`;
+
+        // 【資料庫保護機制】
+        // 因為前端將同品項拆分為多列，為了避免 Apps Script 後端出現重複尋找與扣減異常
+        // 在送出前將 cartItems 內的同 ID 數量進行安全聚合 (Aggregate)
+        const aggregatedCartItems = [];
+        items.forEach(i => {
+            const existing = aggregatedCartItems.find(x => x.id === i.id);
+            if (existing) {
+                existing.qty += i.qty;
+            } else {
+                aggregatedCartItems.push({ id: i.id, qty: i.qty });
+            }
+        });
 
         const payload = {
-            itemsString: items.map(i => `${i.name}x${i.qty}`).join(','),
-            cartItems: items.map(i => ({id: i.id, qty: i.qty})),
+            itemsString: itemsStr,
+            cartItems: aggregatedCartItems, // 傳送已加總同 ID 數量的陣列給後端
             originalTotal: subtotal,
             discount: subtotal - total,
             finalTotal: total,
@@ -441,7 +496,6 @@
         updateQueue(); 
     }
     
-    // 優化：增加Try-Catch防止舊緩存損毀導致系統崩潰
     function loadData() { 
         try {
             const q = localStorage.getItem('pos_v11_q'); 
@@ -463,7 +517,6 @@
         document.getElementById('localCount').innerText = syncQueue.length;
     }
 
-    // 優化：加入isSyncing鎖，防止網路不穩時重複送出API造成Google Sheets計算錯誤
     async function processQueue() {
         if(!navigator.onLine || syncQueue.length === 0 || isSyncing) return;
         
@@ -474,7 +527,7 @@
             syncQueue.shift(); 
             saveData(); 
             isSyncing = false;
-            processQueue(); // 遞迴處理下一筆
+            processQueue(); 
         } catch(e) {
             isSyncing = false;
             console.error("同步失敗，稍後重試");
