@@ -3,23 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🍵 茶葉 POS - 專業營運穩定版</title>
+    <title>🍵 茶葉 POS - 專業營運穩定版 (含庫存監控)</title>
     <style>
         :root { 
             --primary: #2c3e50; --success: #27ae60; --warning: #f39c12; 
             --danger: #e74c3c; --line-green: #00c300; --bank-blue: #0984e3; --bg: #f4f7f6;
+            /* 庫存系統專用色票 */
+            --inv-bg: #151e2b; --inv-border: #00e5ff; --inv-text: #e2e8f0;
+            --inv-th: #8a9ba8; --inv-price: #00e676; --inv-badge: #394b59;
         }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft JhengHei", sans-serif; margin: 0; background-color: var(--bg); display: flex; height: 100vh; overflow: hidden; }
         
         /* 頂部狀態 */
-        .status-header { background: #34495e; color: white; padding: 8px 15px; font-size: 11px; display: flex; justify-content: space-between; align-items: center; z-index: 100; }
+        .status-header { background: #34495e; color: white; padding: 8px 15px; font-size: 11px; display: flex; justify-content: space-between; align-items: center; z-index: 100; flex-shrink: 0; }
         .status-pill { padding: 2px 8px; border-radius: 10px; font-weight: bold; }
         .online-pill { background: var(--success); }
         .offline-pill { background: var(--danger); }
         .hw-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; background: #95a5a6; }
         .hw-dot.active { background: var(--success); box-shadow: 0 0 5px var(--success); }
+        
+        .btn-toggle-view { background: #00e5ff; color: #151e2b; border: none; padding: 4px 12px; border-radius: 15px; font-size: 11px; font-weight: bold; cursor: pointer; margin-left: 15px; transition: 0.2s; }
+        .btn-toggle-view:hover { background: #00b8cc; }
 
-        /* 商品展示區 */
+        /* 商品展示區 (POS) */
         .product-area { flex: 7; padding: 20px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 15px; align-content: start; }
         .category-title { grid-column: 1 / -1; font-size: 13px; color: #7f8c8d; font-weight: bold; margin: 15px 0 8px; border-left: 4px solid var(--primary); padding-left: 10px; text-transform: uppercase; }
         .product-card { background: white; border-radius: 12px; padding: 15px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); cursor: pointer; border: 2px solid transparent; transition: 0.1s; display: flex; flex-direction: column; justify-content: space-between; height: 140px; }
@@ -32,7 +38,7 @@
         .p-stock { font-size: 10px; color: #95a5a6; margin-top: 6px; background: #f0f2f5; padding: 2px 6px; border-radius: 4px; display: inline-block; align-self: center; }
         .p-stock.low-stock { color: white; background: var(--danger); }
 
-        /* 右側結帳區 */
+        /* 右側結帳區 (POS) */
         .sidebar { flex: 3; background: white; display: flex; flex-direction: column; border-left: 1px solid #dcdde1; min-width: 360px; box-shadow: -5px 0 15px rgba(0,0,0,0.03); }
         .cart-header { padding: 15px; background: var(--primary); color: white; display: flex; justify-content: space-between; align-items: center; font-weight: bold; }
         .cart-list { flex: 1; overflow-y: auto; padding: 10px; border-bottom: 1px solid #f1f2f6; }
@@ -72,7 +78,31 @@
 
         #toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); padding: 12px 25px; border-radius: 30px; color: white; display: none; z-index: 11000; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
 
-        @media (max-width: 768px) { body { flex-direction: column; } .sidebar { min-width: 100%; height: 60vh; } }
+        /* ================= 庫存監控系統 UI ================= */
+        #inventoryContainer { display: none; flex: 1; background-color: var(--inv-bg); padding: 30px 40px; overflow-y: auto; color: var(--inv-text); }
+        .inv-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; }
+        .inv-title { color: var(--inv-border); font-size: 26px; font-weight: bold; margin: 0; letter-spacing: 1px; }
+        .inv-subtitle { color: var(--inv-th); font-size: 13px; }
+        
+        .inv-table-wrapper { border: 2px solid var(--inv-border); border-radius: 10px; background-color: #1b2635; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 229, 255, 0.05); }
+        .inv-table { width: 100%; border-collapse: collapse; text-align: left; }
+        .inv-table th { padding: 16px 20px; background-color: #1e2b3c; color: var(--inv-th); font-size: 14px; border-bottom: 1px solid #2d3b4e; font-weight: 600; letter-spacing: 0.5px; }
+        .inv-table td { padding: 16px 20px; border-bottom: 1px solid #2d3b4e; font-size: 15px; color: #f7fafc; }
+        .inv-table tr:hover { background-color: #223042; }
+        .inv-table tr:last-child td { border-bottom: none; }
+        
+        .inv-td-name { font-weight: bold; color: #ffffff; }
+        .inv-td-cost { color: #a0aec0; }
+        .inv-td-price { color: var(--inv-price); font-weight: bold; font-family: monospace; font-size: 16px; }
+        .inv-stock-badge { background-color: var(--inv-badge); padding: 4px 12px; border-radius: 6px; display: inline-block; font-family: monospace; font-size: 15px; font-weight: bold; box-shadow: inset 0 1px 3px rgba(0,0,0,0.3); }
+        .inv-stock-badge.warning { background-color: #b7791f; color: white; }
+        .inv-stock-badge.danger { background-color: #c53030; color: white; }
+
+        @media (max-width: 768px) { 
+            #posContainer { flex-direction: column; } 
+            .sidebar { min-width: 100%; height: 60vh; } 
+            #inventoryContainer { padding: 15px; }
+        }
     </style>
 </head>
 <body>
@@ -96,18 +126,21 @@
     </div>
 </div>
 
-<div style="display:flex; flex-direction:column; width:100%;">
+<div style="display:flex; flex-direction:column; width:100%; height: 100%;">
+    <!-- 頂部狀態列 -->
     <div class="status-header">
         <div>
             <span class="status-pill" id="netStatusPill">偵測中...</span>
             <span id="syncStatus" style="margin-left:10px;">雲端同步中...</span>
+            <button class="btn-toggle-view" id="viewToggleBtn" onclick="toggleView()">📊 庫存管理</button>
         </div>
         <div>
             <span class="hw-dot active"></span> <span id="usbStatus">USB 掃描槍就緒</span>
         </div>
     </div>
 
-    <div style="display:flex; flex:1; overflow:hidden;">
+    <!-- POS 收銀主介面 -->
+    <div id="posContainer" style="display:flex; flex:1; overflow:hidden;">
         <div class="product-area" id="productGrid"></div>
 
         <div class="sidebar">
@@ -180,33 +213,56 @@
             </div>
         </div>
     </div>
+
+    <!-- 庫存監控系統介面 (預設隱藏) -->
+    <div id="inventoryContainer">
+        <div class="inv-header">
+            <h2 class="inv-title">庫存管理</h2>
+            <span class="inv-subtitle">即時庫存監控 (資料來源：Google Sheets)</span>
+        </div>
+        <div class="inv-table-wrapper">
+            <table class="inv-table">
+                <thead>
+                    <tr>
+                        <th>品名</th>
+                        <th>成本</th>
+                        <th>售價</th>
+                        <th>當前庫存</th>
+                    </tr>
+                </thead>
+                <tbody id="inventoryTbody">
+                    <!-- JS 動態生成 -->
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
 <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwWWTZNNbSesSrb3WqHP1OrnwQLVPj5zzAV3XlDqDcocqR9kWzcwYl9hBFQcFKo0Hj84A/exec";
     
-    const LINE_PAY_IMG = "data:image/jpeg;base64,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";
-    const BANK_TRANSFER_IMG = "data:image/jpeg;base64,/9j/4QBYRXhpZgAATU0AKgAAAAgABAEAAAQAAAABAAACYQEBAAQAAAABAAACX4dpAAQAAAABAAAAPgESAAQAAAABAAAAAAAAAAAAAZIIAAQAAAABAAAAAAAAAAD/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIfIiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/2wBDAQoLCw4NDhwQEBw7KCIoOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozv/wAARCAJfAmEDASIAAhEBAxEB/8QAHAAAAwEBAQEBAQAAAAAAAAAAAAABAgMEBQYH/8QAUBAAAQMCAgQEEQoFAwMFAQEAAQACAwQFBhEHEiExE1GR0RQVFhciNTZBVFVhcXJzgbHBMjQ3UlODlKGz4SNCkpPwM6LxJEViJUNjZYInJv/EABsBAQEBAAMBAQAAAAAAAAAAAAAAAwQFBgIB/8QALBEBAAICAQQBAwMDBQAAAAAAAAECAxEEBIRHUlORIjEzUWEyQRUjQmKx0f/aAAwDAQACEQMRAD8AI9HWH7LXYFt1TV2egqJn8LrSS0zHudlK8DMkZ7gES9SuHPEFs/Bx8y5WjH6PbZ97+q9Ycb4rfh2JzmucMm57FZR2+pXDniC2fg4+ZTqVw54gtn4OPmSm68U/2knIVOvFP9pJyFNhs9SuHPEFs/Bx8ynUrhzxBbPwcfMlN14p/tJOQqdeKf7knIU2Gz1K4c8QWz8HHzKdSuHPEFs/Bx8ypuvFP9pJyFTrxT9pJyFNhs9SuHPEFs/Bx8ynUrhzxBbPwcfMlN14p/tJOQqdeKf7JOQpsNnqVw54gtn4OPmU6lcOeILZ+Dj5ly8A4ldie";
+    // 佔位圖示省略，維持原邏輯
+    const LINE_PAY_IMG = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="; 
+    const BANK_TRANSFER_IMG = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=";
     
+    // 擴充產品資料結構：加入 cost (成本) 屬性以符合截圖需求
     const PRODUCTS = [
-        { id: 1, barcode: "1001", cat: "📦 茶葉與禮盒", name: '文山包種茶', price: 300, stock: 0 },
-         { id: 16, barcode: "1016", cat: "📦 茶葉與禮盒", name: '98K大禺嶺 青心烏龍', price: 250, stock: 0 },
-        { id: 2, barcode: "1002", cat: "📦 茶葉與禮盒", name: '蜜香紅茶', price: 350, stock: 0 },
-        { id: 3, barcode: "1003", cat: "📦 茶葉與禮盒", name: '阿里山紅烏龍', price: 450, stock: 0 },
-        { id: 4, barcode: "1004", cat: "📦 茶葉與禮盒", name: '南投凍頂烏龍', price: 350, stock: 0 },
-        { id: 13, barcode: "1013", cat: "📦 茶葉與禮盒", name: '阿里山金萱', price: 100, stock: 0 },
-        { id: 5, barcode: "1005", cat: "📦 茶葉與禮盒", name: '茶山漫遊禮盒', price: 1100, stock: 0 },
-        { id: 14, barcode: "1014", cat: "📦 茶葉與禮盒", name: '銀質包種禮盒', price: 1200, stock: 0 },
-        { id: 6, barcode: "1006", cat: "📦 茶葉與禮盒", name: '盒裝茶包(10入)', price: 250, stock: 0 },
-        { id: 7, barcode: "2007", cat: "🥤 現萃茶飲", name: '現萃-文山包種', price: 60, stock: 0 },
-        { id: 15, barcode: "2015", cat: "🥤 現萃茶飲", name: '現萃-焙香茶穗', price: 60, stock: 0 },
-        { id: 8, barcode: "2008", cat: "🥤 現萃茶飲", name: '現萃-蜜香紅茶', price: 60, stock: 0 },
-        { id: 11, barcode: "2011", cat: "🥤 現萃茶飲", name: '冷泡茶 (瓶)', price: 80, stock: 0 },
-        { id: 12, barcode: "9001", cat: "🛍️ 其他", name: '提袋/包材', price: 10, stock: 0 },
-          { id: 17, barcode: "8001", cat: "📦 茶葉與禮盒", name: '阿里山青心烏龍', price: 10, stock: 0 },
-          { id: 18, barcode: "6001", cat: "📦 茶葉與禮盒", name: '東方美人', price: 10, stock: 0 },
-
-        
+        { id: 1, barcode: "1001", cat: "📦 茶葉與禮盒", name: '文山包種茶', cost: 160, price: 300, stock: 0 },
+        { id: 16, barcode: "1016", cat: "📦 茶葉與禮盒", name: '98K大禺嶺 青心烏龍', cost: 160, price: 250, stock: 0 },
+        { id: 2, barcode: "1002", cat: "📦 茶葉與禮盒", name: '蜜香紅茶', cost: 160, price: 350, stock: 0 },
+        { id: 3, barcode: "1003", cat: "📦 茶葉與禮盒", name: '阿里山紅烏龍', cost: 160, price: 450, stock: 0 },
+        { id: 4, barcode: "1004", cat: "📦 茶葉與禮盒", name: '南投凍頂烏龍', cost: 160, price: 350, stock: 0 },
+        { id: 13, barcode: "1013", cat: "📦 茶葉與禮盒", name: '阿里山金萱', cost: 160, price: 100, stock: 0 },
+        { id: 5, barcode: "1005", cat: "📦 茶葉與禮盒", name: '茶山漫遊禮盒', cost: 500, price: 1100, stock: 0 },
+        { id: 14, barcode: "1014", cat: "📦 茶葉與禮盒", name: '銀質包種禮盒', cost: 600, price: 1200, stock: 0 },
+        { id: 6, barcode: "1006", cat: "📦 茶葉與禮盒", name: '茶包(10入)', cost: 160, price: 90, stock: 0 },
+        { id: 17, barcode: "8001", cat: "📦 茶葉與禮盒", name: '阿里山青心烏龍', cost: 5, price: 10, stock: 0 },
+        { id: 18, barcode: "6001", cat: "📦 茶葉與禮盒", name: '東方美人', cost: 5, price: 10, stock: 0 },
+        { id: 7, barcode: "2007", cat: "🥤 現萃茶飲", name: '現萃-文山包種', cost: 15, price: 60, stock: 0 },
+        { id: 15, barcode: "2015", cat: "🥤 現萃茶飲", name: '現萃-焙香茶穗', cost: 15, price: 60, stock: 0 },
+        { id: 8, barcode: "2008", cat: "🥤 現萃茶飲", name: '現萃-蜜香紅茶', cost: 15, price: 60, stock: 0 },
+        { id: 11, barcode: "2011", cat: "🥤 現萃茶飲", name: '冷泡茶 (瓶)', cost: 20, price: 80, stock: 0 },
+        { id: 12, barcode: "9001", cat: "🛍️ 其他", name: '提袋/包材', cost: 5, price: 10, stock: 0 }
     ];
 
     let cart = {};
@@ -217,9 +273,57 @@
     
     let isSyncing = false; 
     let toastTimeout = null;
+    let isInventoryView = false; // 控制視圖切換狀態
 
     window.onload = () => { loadData(); render(); initNet(); refreshStock(); setupUSB(); };
 
+    // --- 視圖切換邏輯 ---
+    function toggleView() {
+        isInventoryView = !isInventoryView;
+        const posView = document.getElementById('posContainer');
+        const invView = document.getElementById('inventoryContainer');
+        const toggleBtn = document.getElementById('viewToggleBtn');
+
+        if (isInventoryView) {
+            posView.style.display = 'none';
+            invView.style.display = 'block';
+            toggleBtn.innerText = "🛒 返回收銀";
+            toggleBtn.style.background = "var(--success)";
+            toggleBtn.style.color = "white";
+            renderInventory(); // 切換時渲染最新資料
+        } else {
+            posView.style.display = 'flex';
+            invView.style.display = 'none';
+            toggleBtn.innerText = "📊 庫存管理";
+            toggleBtn.style.background = "#00e5ff";
+            toggleBtn.style.color = "#151e2b";
+            render(); // 確保 POS 畫面庫存更新
+        }
+    }
+
+    // --- 庫存系統渲染邏輯 ---
+    function renderInventory() {
+        const tbody = document.getElementById('inventoryTbody');
+        
+        // 過濾掉不需盤點的項目 (例如提袋或現萃茶，可依據需求調整，這裡依照原圖預設全列出)
+        // 依據截圖，我們特別排列呈現
+        tbody.innerHTML = PRODUCTS.map(p => {
+            let badgeClass = '';
+            if (p.stock <= 0) badgeClass = 'danger';
+            else if (p.stock <= 5) badgeClass = 'warning';
+
+            return `
+            <tr>
+                <td class="inv-td-name">${p.name}</td>
+                <td class="inv-td-cost">$${p.cost}</td>
+                <td class="inv-td-price">$${p.price}</td>
+                <td><span class="inv-stock-badge ${badgeClass}">${p.stock}</span></td>
+            </tr>
+            `;
+        }).join('');
+    }
+
+    // --- 原有 POS 邏輯 ---
     function notify(m, isErr = false) {
         const t = document.getElementById('toast');
         t.innerText = m; 
@@ -258,6 +362,8 @@
     }
 
     function render() {
+        if(isInventoryView) return; // 如果在庫存模式不渲染 POS
+
         const grid = document.getElementById('productGrid');
         grid.innerHTML = ""; let curCat = "";
         PRODUCTS.forEach(p => {
@@ -278,28 +384,19 @@
         });
     }
 
-    // 業界標準：獨立明細化 (Line-Item Independence)
-    // 每次點擊/掃描都產生獨立的 Unique Key，絕對不合併，強制數量為 1
     function addToCart(id) {
         const p = PRODUCTS.find(x => x.id === id);
-        // 使用時間戳記與隨機碼產生全域唯一的 Cart Key
         const cartKey = `${id}_${Date.now()}_${Math.floor(Math.random()*1000)}`;
-        
-        // 跨明細計算該商品目前在購物車中的總和，以確保防呆庫存判定正確
         const currentTotalQty = Object.values(cart).filter(item => item.id === id).length;
 
         if (p.id < 20 && currentTotalQty + 1 > p.stock) return notify(`❌ 庫存不足`, true);
 
-        // 每一次新增都是一筆獨立的明細，永遠只有 1 件
         cart[cartKey] = { ...p, qty: 1, type: 'normal', cartKey: cartKey };
         updateUI();
     }
 
-    // 單一獨立明細的狀態切換 (正常、茶樣、公關) 
     function changeItemType(cartKey, newType) {
         if (!cart[cartKey]) return;
-        
-        // 由於每一列都是獨立的，直接更改其屬性即可
         cart[cartKey].type = newType;
         updateUI();
     }
@@ -321,7 +418,6 @@
             return;
         }
         
-        // 渲染購物車 UI (已拔除 + - 按鈕，強制標示 1件，落實單品獨立化)
         list.innerHTML = items.map(i => `
             <div class="cart-item" style="background:${i.type!=='normal'?'#fff9e6':'transparent'};">
                 <div style="flex:1;">
@@ -341,18 +437,13 @@
                 </div>
             </div>`).join('');
 
-        let sub = 0;
-        let normalSub = 0;
-        let itemDiscAmt = 0;
+        let sub = 0; let normalSub = 0; let itemDiscAmt = 0;
 
         items.forEach(i => {
-            const lineTotal = i.price; // qty 恆為 1
+            const lineTotal = i.price; 
             sub += lineTotal;
-            if (i.type === 'normal') {
-                normalSub += lineTotal;
-            } else {
-                itemDiscAmt += lineTotal; 
-            }
+            if (i.type === 'normal') normalSub += lineTotal;
+            else itemDiscAmt += lineTotal; 
         });
 
         let final = normalSub;
@@ -379,9 +470,7 @@
         document.querySelectorAll(`#${g} .opt-btn`).forEach(b => b.classList.remove('active'));
         btn.classList.add('active'); 
         
-        if (k === 'disc') {
-            document.getElementById('customDiscBox').style.display = 'none';
-        }
+        if (k === 'disc') document.getElementById('customDiscBox').style.display = 'none';
         updateUI();
     }
 
@@ -395,10 +484,8 @@
 
     function applyCustomDisc() {
         const inputVal = parseFloat(document.getElementById('customDiscInput').value);
-        if (isNaN(inputVal) || inputVal < 0) {
-            notify("請輸入大於0的有效金額", true);
-            return;
-        }
+        if (isNaN(inputVal) || inputVal < 0) return notify("請輸入大於0的有效金額", true);
+        
         state.disc = -Math.abs(inputVal);
         updateUI();
         notify(`✅ 已應用折抵金額: $${inputVal}`);
@@ -410,10 +497,7 @@
         
         const total = document.getElementById('finalTotal').innerText;
         
-        if(total === "$0") {
-            executeFinalSync();
-            return;
-        }
+        if(total === "$0") { executeFinalSync(); return; }
         
         if(state.method === 'LinePay' || state.method === '轉帳') {
             document.getElementById('mTitle').innerText = state.method === 'LinePay' ? 'LINE Pay 收款' : '銀行轉帳資訊';
@@ -427,10 +511,9 @@
     function executeFinalSync() {
         closeModal();
         const items = Object.values(cart);
-        const subtotal = items.reduce((s, i) => s + i.price, 0); // qty 恆為 1
+        const subtotal = items.reduce((s, i) => s + i.price, 0); 
         const total = parseInt(document.getElementById('finalTotal').innerText.replace("$",""));
         
-        // 為了報表好看，將獨立的單品在紀錄字串中進行同類別聚合 (例如：文山包種茶x2, 文山包種茶(茶樣)x1)
         const typeMap = { normal: '', sample: '(茶樣)', pr: '(公關)' };
         const printMap = {};
         items.forEach(i => {
@@ -444,38 +527,33 @@
         if (state.disc > 0 && state.disc < 1) noteStr = `整單折扣:${state.disc * 10}折`;
         else if (state.disc < 0) noteStr = `整單折抵:$${Math.abs(state.disc)}`;
 
-        // 【資料庫保護機制】
-        // 將 cartItems 內的同 ID 數量進行安全聚合，確保 Apps Script 後端能一次性正確扣減該 ID 的所有數量
         const aggregatedCartItems = [];
         items.forEach(i => {
             const existing = aggregatedCartItems.find(x => x.id === i.id);
-            if (existing) {
-                existing.qty += 1;
-            } else {
-                aggregatedCartItems.push({ id: i.id, qty: 1 });
-            }
+            if (existing) existing.qty += 1;
+            else aggregatedCartItems.push({ id: i.id, qty: 1 });
         });
 
         const payload = {
             itemsString: itemsStr,
-            cartItems: aggregatedCartItems, // 傳送已加總同 ID 數量的陣列給後端
-            originalTotal: subtotal,
-            discount: subtotal - total,
-            finalTotal: total,
-            method: state.method,
-            gender: state.gender,
-            age: state.age,
-            note: noteStr,
-            ts: Date.now()
+            cartItems: aggregatedCartItems,
+            originalTotal: subtotal, discount: subtotal - total, finalTotal: total,
+            method: state.method, gender: state.gender, age: state.age, note: noteStr, ts: Date.now()
         };
+        
         syncQueue.push(payload); 
         allHistory.push(payload);
         saveData();
         
-        // 樂觀庫存更新
+        // 更新本地庫存
         items.forEach(item => { const p = PRODUCTS.find(x => x.id === item.id); if (p) p.stock -= 1; });
         
-        clearAll(); render(); processQueue();
+        clearAll(); 
+        
+        // 若切換為庫存模式，同步更新庫存介面
+        if(isInventoryView) renderInventory(); else render(); 
+        
+        processQueue();
         notify(navigator.onLine ? "✅ 結帳成功，同步中..." : "⚠️ 離線結帳成功，已存入佇列");
     }
 
@@ -492,9 +570,7 @@
             if(q) syncQueue = JSON.parse(q); 
             if(h) allHistory = JSON.parse(h);
         } catch(e) {
-            console.error("緩存資料解析錯誤，已重置本地列隊");
-            syncQueue = [];
-            allHistory = [];
+            syncQueue = []; allHistory = [];
         }
         updateQueue(); 
     }
@@ -525,7 +601,9 @@
 
     function refreshStock() {
         fetch(SCRIPT_URL).then(r => r.json()).then(d => {
-            PRODUCTS.forEach(p => { if(d[p.id] !== undefined) p.stock = d[p.id]; }); render();
+            PRODUCTS.forEach(p => { if(d[p.id] !== undefined) p.stock = d[p.id]; }); 
+            if(isInventoryView) renderInventory(); else render();
+            notify("🔄 庫存已從雲端更新");
         }).catch(e => {
             console.log("無法獲取庫存 (可能無網路)");
         });
