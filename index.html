@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🍵 茶葉 POS - 專業營運穩定版 (含對帳)</title>
+    <title>🍵 茶葉 POS - 專業營運穩定版 (業績查詢)</title>
     <style>
         :root { 
             --primary: #2c3e50; --success: #27ae60; --warning: #f39c12; 
@@ -144,39 +144,35 @@
 <div class="modal" id="shiftModal">
     <div class="modal-body">
         <h3 style="margin-top:0; color:var(--primary);">💰 開班設定</h3>
-        <p style="font-size: 13px; color: #7f8c8d; margin-bottom: 20px;">請輸入今日收銀機內的初始零用金金額<br>此數值將作為收班對帳依據</p>
+        <p style="font-size: 13px; color: #7f8c8d; margin-bottom: 20px;">請輸入今日收銀機內的初始零用金金額<br>以啟動結帳與業績累計功能</p>
         
         <input type="number" id="pettyCashInput" class="modal-input" placeholder="輸入零用金金額 (例如: 2000)" min="0">
         <input type="text" id="operatorName" class="modal-input" placeholder="操作人員姓名 (選填)">
         
-        <button class="btn-pay" style="background:var(--warning);" onclick="submitOpenShift()">確認開班紀錄</button>
+        <button class="btn-pay" style="background:var(--warning);" onclick="submitOpenShift()">確認開班</button>
         <button onclick="closeModal('shiftModal')" style="background:none; border:none; color:#bdc3c7; margin-top:15px; font-size:12px; cursor:pointer;">取消</button>
     </div>
 </div>
 
-<!-- 收班與業績結算彈窗 (新增) -->
-<div class="modal" id="closeShiftModal">
+<!-- 業績查詢彈窗 (精簡版) -->
+<div class="modal" id="salesModal">
     <div class="modal-body" style="width: 380px;">
-        <h3 style="margin-top:0; color:var(--primary);">📊 收班與業績結算</h3>
-        <p style="font-size: 13px; color: #7f8c8d; margin-bottom: 20px;">檢視本班次營業額並進行現金盤點對帳</p>
+        <h3 style="margin-top:0; color:var(--primary);">📊 本班業績查詢</h3>
+        <p style="font-size: 13px; color: #7f8c8d; margin-bottom: 20px;">檢視自開班以來的累積營業額</p>
         
-        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: left; font-size: 14px; margin-bottom: 15px; color: var(--primary);">
+        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: left; font-size: 14px; margin-bottom: 20px; color: var(--primary);">
             <div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span>開班零用金:</span><span id="cs-pettyCash" style="font-weight:bold;">$0</span></div>
             <div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span>本班總營業額:</span><span id="cs-totalRev" style="font-weight:bold; color:var(--bank-blue);">$0</span></div>
             <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:12px; color:#7f8c8d;"><span>├ 現金營收:</span><span id="cs-cashRev">$0</span></div>
             <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:12px; color:#7f8c8d;"><span>└ 非現金營收 (Line/刷卡):</span><span id="cs-nonCashRev">$0</span></div>
-            <hr style="border:0; border-top:1px dashed #bdc3c7; margin:10px 0;">
-            <div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span>應有現金總額 (零用金+現金營收):</span><span id="cs-expectedCash" style="font-weight:900; color:var(--success); font-size:16px;">$0</span></div>
         </div>
 
-        <div style="text-align:left; margin-bottom: 20px;">
-            <label style="font-size:12px; font-weight:bold; color:var(--primary);">實際盤點現金 (請清點抽屜內總現金)</label>
-            <input type="number" id="cs-actualCash" class="modal-input" style="margin-bottom:5px; margin-top:5px; font-size:24px; font-weight:bold;" oninput="calcDiscrepancy()">
-            <div style="font-size:13px; text-align:right;">短溢狀況: <span id="cs-diff" style="font-weight:bold; font-size:18px;">$0</span></div>
-        </div>
+        <button class="btn-pay" style="background:var(--primary);" onclick="closeModal('salesModal')">確認並返回</button>
         
-        <button class="btn-pay" style="background:var(--danger);" onclick="submitCloseShift()">確認收班並紀錄</button>
-        <button onclick="closeModal('closeShiftModal')" style="background:none; border:none; color:#bdc3c7; margin-top:15px; font-size:12px; cursor:pointer;">取消返回</button>
+        <!-- 結束班次防呆按鈕，讓系統重新計算下一班業績 -->
+        <button onclick="endShiftOnly()" style="background:none; border:none; color:var(--danger); margin-top:15px; font-size:12px; cursor:pointer; text-decoration:underline;">
+            結束本班次 (清除本機開班紀錄)
+        </button>
     </div>
 </div>
 
@@ -188,7 +184,7 @@
             <span id="syncStatus" style="margin-left:10px;">雲端同步中...</span>
             <button class="btn-toggle-view" id="viewToggleBtn" onclick="toggleView()">📊 庫存管理</button>
             <button class="btn-shift" onclick="openShiftModal()">💰 開班</button>
-            <button class="btn-shift" style="background:var(--danger);" onclick="openCloseShiftModal()">📊 收班與業績</button>
+            <button class="btn-shift" style="background:var(--bank-blue);" onclick="openSalesModal()">📊 本班業績</button>
         </div>
         <div>
             <span class="hw-dot active"></span> <span id="usbStatus">USB 掃描槍就緒</span>
@@ -295,7 +291,7 @@
 
 <script>
     // ===============================================
-    // ⚠️ 請替換為您更新後的 Google Apps Script 網址 ⚠️
+    // ⚠️ 請填入您的 Google Apps Script 網址 ⚠️
     // ===============================================
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwWWTZNNbSesSrb3WqHP1OrnwQLVPj5zzAV3XlDqDcocqR9kWzcwYl9hBFQcFKo0Hj84A/exec"; 
     
@@ -332,15 +328,15 @@
     let toastTimeout = null;
     let isInventoryView = false;
 
-    // 開收班狀態儲存 (從 LocalStorage 讀取)
+    // 開收班狀態儲存
     let shiftData = null;
 
     window.onload = () => { loadData(); render(); initNet(); refreshStock(); setupUSB(); };
 
-    // --- 開收班機制 ---
+    // --- 開班機制 ---
     function openShiftModal() {
         if (shiftData) {
-            return notify("⚠️ 目前已經在開班狀態，請先收班", true);
+            return notify("⚠️ 目前已經在開班狀態", true);
         }
         document.getElementById('shiftModal').style.display = 'flex';
         document.getElementById('pettyCashInput').focus();
@@ -372,7 +368,7 @@
             .then(() => {
                 notify(`✅ 開班成功！記錄零用金: $${pettyCash}`);
                 
-                // 將狀態寫入 LocalStorage 持久化保存
+                // 狀態持久化
                 shiftData = { pettyCash: pettyCash, operator: operatorName, openTime: payload.ts };
                 localStorage.setItem('pos_shift_data', JSON.stringify(shiftData));
                 
@@ -389,13 +385,13 @@
             });
     }
 
-    // --- 收班與業績查詢機制 ---
-    function openCloseShiftModal() {
+    // --- 業績查詢機制 (精簡版) ---
+    function openSalesModal() {
         if (!shiftData) {
-            return notify("⚠️ 尚未開班，無法進行收班結算", true);
+            return notify("⚠️ 尚未開班，無法查詢業績", true);
         }
 
-        // 過濾出「本班次 (開班時間之後)」的所有訂單
+        // 過濾出本班次的訂單
         const sessionOrders = allHistory.filter(o => o.ts >= shiftData.openTime);
         
         let totalRev = 0;
@@ -417,84 +413,16 @@
         document.getElementById('cs-cashRev').innerText = `$${cashRev.toLocaleString()}`;
         document.getElementById('cs-nonCashRev').innerText = `$${nonCashRev.toLocaleString()}`;
         
-        // 應有現金 = 初始零用金 + 本班現金營收
-        const expectedCash = shiftData.pettyCash + cashRev;
-        document.getElementById('cs-expectedCash').innerText = `$${expectedCash.toLocaleString()}`;
-        
-        // 預設將實際現金填入應有現金，方便操作
-        document.getElementById('cs-actualCash').value = expectedCash;
-        
-        // 隱藏在 HTML 屬性中，供計算使用
-        document.getElementById('cs-actualCash').setAttribute('data-expected', expectedCash);
-        document.getElementById('cs-actualCash').setAttribute('data-totalRev', totalRev);
-
-        calcDiscrepancy();
-        document.getElementById('closeShiftModal').style.display = 'flex';
+        document.getElementById('salesModal').style.display = 'flex';
     }
 
-    function calcDiscrepancy() {
-        const expected = parseInt(document.getElementById('cs-actualCash').getAttribute('data-expected')) || 0;
-        const actual = parseInt(document.getElementById('cs-actualCash').value) || 0;
-        const diff = actual - expected;
-        
-        const diffEl = document.getElementById('cs-diff');
-        diffEl.innerText = diff > 0 ? `+$${diff.toLocaleString()}` : `$${diff.toLocaleString()}`;
-        
-        if (diff < 0) {
-            diffEl.style.color = 'var(--danger)'; // 負數為紅字
-        } else if (diff > 0) {
-            diffEl.style.color = 'var(--warning)'; // 溢出為橘字
-        } else {
-            diffEl.style.color = 'var(--success)'; // 吻合為綠字
+    function endShiftOnly() {
+        if(confirm("確定要結束本班次嗎？這將清除本機的開班時間與業績累計。")) {
+            localStorage.removeItem('pos_shift_data');
+            shiftData = null;
+            closeModal('salesModal');
+            notify("✅ 本班次已結束，可重新開班");
         }
-    }
-
-    function submitCloseShift() {
-        if(!navigator.onLine) return notify("⚠️ 離線狀態無法執行收班", true);
-        
-        const actual = parseInt(document.getElementById('cs-actualCash').value);
-        if (isNaN(actual) || actual < 0) return notify("❌ 請輸入有效的現金盤點金額", true);
-
-        const expected = parseInt(document.getElementById('cs-actualCash').getAttribute('data-expected')) || 0;
-        const totalRev = parseInt(document.getElementById('cs-actualCash').getAttribute('data-totalRev')) || 0;
-        const diff = actual - expected;
-
-        // 這裡向後端送出另一個 action: 'closeShift' 以供紀錄
-        // 若您的後端 (Code.gs) 尚未處理此 action，它會安全地忽略或被 default handler 攔截。
-        // 建議後續也可在 Code.gs 加入對 closeShift 的處理邏輯。
-        const payload = {
-            action: 'closeShift', // 提醒：Code.gs 可據此判斷並寫入對帳表
-            operator: shiftData.operator,
-            openTime: shiftData.openTime,
-            pettyCash: shiftData.pettyCash,
-            totalRev: totalRev,
-            expectedCash: expected,
-            actualCash: actual,
-            diff: diff,
-            ts: Date.now()
-        };
-
-        const btn = document.querySelector('#closeShiftModal .btn-pay');
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '連線結算中...';
-        btn.disabled = true;
-
-        fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) })
-            .then(() => {
-                notify(`✅ 收班完成！本班營業額: $${totalRev}`);
-                closeModal('closeShiftModal');
-                
-                // 清除本地開班紀錄
-                localStorage.removeItem('pos_shift_data');
-                shiftData = null;
-            })
-            .catch(e => {
-                notify("❌ 收班記錄失敗，請檢查連線", true);
-            })
-            .finally(() => {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            });
     }
 
     // --- 視圖切換邏輯 ---
@@ -648,7 +576,7 @@
     }
 
     function addToCart(id) {
-        if (!shiftData) return notify("⚠️ 尚未開班，無法進行結帳操作", true); // 新增防呆：未開班不能點單
+        if (!shiftData) return notify("⚠️ 尚未開班，無法進行結帳操作", true); 
 
         const p = PRODUCTS.find(x => x.id === id);
         const cartKey = `${id}_${Date.now()}_${Math.floor(Math.random()*1000)}`;
@@ -824,7 +752,7 @@
         try {
             const q = localStorage.getItem('pos_v11_q'); 
             const h = localStorage.getItem('pos_v11_h');
-            const s = localStorage.getItem('pos_shift_data'); // 讀取開班資訊
+            const s = localStorage.getItem('pos_shift_data'); 
             if(q) syncQueue = JSON.parse(q); 
             if(h) allHistory = JSON.parse(h);
             if(s) shiftData = JSON.parse(s);
