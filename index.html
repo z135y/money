@@ -271,7 +271,7 @@
     // ===============================================
     // ⚠️ 請替換為您更新後的 Google Apps Script 網址 ⚠️
     // ===============================================
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby_S-b2DN3D6M-_zba5usRhyyjc1Lyf3Ns4g_UyAAAHJAyUUIrqlL_0Uva5NHpruzM_OQ/exec"; 
+    const SCRIPT_URL = ""; 
     
     // 佔位圖示省略，維持原邏輯
     const LINE_PAY_IMG = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="; 
@@ -741,12 +741,17 @@
 
     function refreshStock() {
         if (!SCRIPT_URL) return;
-        fetch(SCRIPT_URL).then(r => r.json()).then(d => {
+        
+        // 修正：必須帶上參數，後端的 doGet 才會知道要回傳 JSON 庫存資料
+        const fetchUrl = SCRIPT_URL.includes('?') ? SCRIPT_URL + '&action=getStock' : SCRIPT_URL + '?action=getStock';
+        
+        fetch(fetchUrl).then(r => r.json()).then(d => {
             PRODUCTS.forEach(p => { if(d[p.id] !== undefined) p.stock = d[p.id]; }); 
             if(isInventoryView) renderInventory(); else render();
-            notify("🔄 庫存已從雲端更新");
+            notify("🔄 庫存已從雲端同步更新");
         }).catch(e => {
-            console.log("無法獲取庫存 (可能無網路)");
+            console.error("無法獲取庫存 (可能無網路或網址未帶參數):", e);
+            notify("⚠️ 無法載入雲端庫存", true);
         });
     }
 
