@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🍵 茶葉 POS - 專業營運穩定版 (含庫存監控)</title>
+    <title>🍵 茶葉 POS - 專業營運穩定版 (含庫存修改)</title>
     <style>
         :root { 
             --primary: #2c3e50; --success: #27ae60; --warning: #f39c12; 
-            --danger: #e74 c3c; --line-green: #00c300; --bank-blue: #0984e3; --bg: #f4f7f6;
+            --danger: #e74c3c; --line-green: #00c300; --bank-blue: #0984e3; --bg: #f4f7f6;
             /* 庫存系統專用色票 */
             --inv-bg: #151e2b; --inv-border: #00e5ff; --inv-text: #e2e8f0;
             --inv-th: #8a9ba8; --inv-price: #00e676; --inv-badge: #394b59;
@@ -87,21 +87,32 @@
         .inv-table-wrapper { border: 2px solid var(--inv-border); border-radius: 10px; background-color: #1b2635; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 229, 255, 0.05); }
         .inv-table { width: 100%; border-collapse: collapse; text-align: left; }
         .inv-table th { padding: 16px 20px; background-color: #1e2b3c; color: var(--inv-th); font-size: 14px; border-bottom: 1px solid #2d3b4e; font-weight: 600; letter-spacing: 0.5px; }
-        .inv-table td { padding: 16px 20px; border-bottom: 1px solid #2d3b4e; font-size: 15px; color: #f7fafc; }
+        .inv-table td { padding: 16px 20px; border-bottom: 1px solid #2d3b4e; font-size: 15px; color: #f7fafc; vertical-align: middle; }
         .inv-table tr:hover { background-color: #223042; }
         .inv-table tr:last-child td { border-bottom: none; }
         
         .inv-td-name { font-weight: bold; color: #ffffff; }
         .inv-td-cost { color: #a0aec0; }
         .inv-td-price { color: var(--inv-price); font-weight: bold; font-family: monospace; font-size: 16px; }
-        .inv-stock-badge { background-color: var(--inv-badge); padding: 4px 12px; border-radius: 6px; display: inline-block; font-family: monospace; font-size: 15px; font-weight: bold; box-shadow: inset 0 1px 3px rgba(0,0,0,0.3); }
-        .inv-stock-badge.warning { background-color: #b7791f; color: white; }
-        .inv-stock-badge.danger { background-color: #c53030; color: white; }
+        
+        /* 庫存修改專用控制項 */
+        .stock-editor { display: flex; align-items: center; gap: 8px; }
+        .btn-stock-adj { background-color: #2d3b4e; border: 1px solid #4a5568; color: #e2e8f0; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+        .btn-stock-adj:hover { background-color: #4a5568; }
+        .inv-input { width: 60px; height: 28px; background-color: #0f172a; border: 1px solid #4a5568; color: #00e5ff; text-align: center; border-radius: 6px; font-family: monospace; font-size: 15px; font-weight: bold; outline: none; transition: 0.3s; }
+        .inv-input.unsynced { border-color: var(--warning); box-shadow: 0 0 8px rgba(243, 156, 18, 0.4); color: var(--warning); }
+        .inv-input:focus { border-color: #00e5ff; }
+        /* 隱藏原生數字框上下箭頭 */
+        .inv-input::-webkit-outer-spin-button, .inv-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .btn-stock-sync { background-color: #0984e3; border: none; color: white; border-radius: 6px; height: 28px; padding: 0 10px; font-size: 12px; cursor: pointer; transition: 0.2s; font-weight: bold; display: flex; align-items: center; gap: 4px; }
+        .btn-stock-sync:hover { background-color: #00a8ff; }
+        .btn-stock-sync:active { transform: scale(0.95); }
 
         @media (max-width: 768px) { 
             #posContainer { flex-direction: column; } 
             .sidebar { min-width: 100%; height: 60vh; } 
             #inventoryContainer { padding: 15px; }
+            .inv-input { width: 50px; }
         }
     </style>
 </head>
@@ -214,11 +225,11 @@
         </div>
     </div>
 
-    <!-- 庫存監控系統介面 (預設隱藏) -->
+    <!-- 庫存監控與修改介面 (預設隱藏) -->
     <div id="inventoryContainer">
         <div class="inv-header">
             <h2 class="inv-title">庫存管理</h2>
-            <span class="inv-subtitle">即時庫存監控 (資料來源：Google Sheets)</span>
+            <span class="inv-subtitle">即時庫存監控與修改 (資料來源：Google Sheets)</span>
         </div>
         <div class="inv-table-wrapper">
             <table class="inv-table">
@@ -227,7 +238,7 @@
                         <th>品名</th>
                         <th>成本</th>
                         <th>售價</th>
-                        <th>當前庫存</th>
+                        <th>庫存數量與調整</th>
                     </tr>
                 </thead>
                 <tbody id="inventoryTbody">
@@ -245,7 +256,7 @@
     const LINE_PAY_IMG = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="; 
     const BANK_TRANSFER_IMG = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=";
     
-    // 擴充產品資料結構：加入 cost (成本) 屬性以符合截圖需求
+    // 擴充產品資料結構
     const PRODUCTS = [
         { id: 1, barcode: "1001", cat: "📦 茶葉與禮盒", name: '文山包種茶', cost: 160, price: 300, stock: 0 },
         { id: 16, barcode: "1016", cat: "📦 茶葉與禮盒", name: '98K大禺嶺 青心烏龍', cost: 160, price: 250, stock: 0 },
@@ -263,7 +274,7 @@
         { id: 8, barcode: "2008", cat: "🥤 現萃茶飲", name: '現萃-蜜香紅茶', cost: 15, price: 60, stock: 0 },
         { id: 11, barcode: "2011", cat: "🥤 現萃茶飲", name: '冷泡茶 (瓶)', cost: 20, price: 80, stock: 0 },
         { id: 12, barcode: "9001", cat: "🛍️ 其他", name: '提袋/包材', cost: 5, price: 10, stock: 0 },
-                { id: 12, barcode: "9001", cat: "🛍️ 其他", name: '紙包茶體驗', cost: 5, price: 500, stock: 0 }
+        { id: 19, barcode: "9002", cat: "🛍️ 其他", name: '紙包茶體驗', cost: 5, price: 500, stock: 0 }
     ];
 
     let cart = {};
@@ -274,7 +285,7 @@
     
     let isSyncing = false; 
     let toastTimeout = null;
-    let isInventoryView = false; // 控制視圖切換狀態
+    let isInventoryView = false;
 
     window.onload = () => { loadData(); render(); initNet(); refreshStock(); setupUSB(); };
 
@@ -291,34 +302,88 @@
             toggleBtn.innerText = "🛒 返回收銀";
             toggleBtn.style.background = "var(--success)";
             toggleBtn.style.color = "white";
-            renderInventory(); // 切換時渲染最新資料
+            renderInventory();
         } else {
             posView.style.display = 'flex';
             invView.style.display = 'none';
             toggleBtn.innerText = "📊 庫存管理";
             toggleBtn.style.background = "#00e5ff";
             toggleBtn.style.color = "#151e2b";
-            render(); // 確保 POS 畫面庫存更新
+            render(); 
         }
     }
 
-    // --- 庫存系統渲染邏輯 ---
+    // --- 庫存系統修改邏輯 (Frontend Logic) ---
+    function adjustStock(id, delta) {
+        const p = PRODUCTS.find(x => x.id === id);
+        if (p) {
+            // 避免庫存變為負數 (如有允許超賣需求，可移除 Math.max)
+            p.stock = Math.max(0, p.stock + delta);
+            const input = document.getElementById(`inv-input-${id}`);
+            input.value = p.stock;
+            input.classList.add('unsynced'); // 標記為未同步 (亮橘框)
+        }
+    }
+
+    function handleStockInput(id, val) {
+        const p = PRODUCTS.find(x => x.id === id);
+        if (p) {
+            const num = parseInt(val);
+            p.stock = isNaN(num) || num < 0 ? 0 : num; // 防呆機制
+            document.getElementById(`inv-input-${id}`).value = p.stock;
+            document.getElementById(`inv-input-${id}`).classList.add('unsynced');
+        }
+    }
+
+    // 將單一商品庫存同步至雲端
+    function syncSingleStock(id) {
+        if(!navigator.onLine) return notify("⚠️ 離線狀態無法同步盤點", true);
+        
+        const p = PRODUCTS.find(x => x.id === id);
+        if(!p) return;
+
+        // 建構專門修改庫存的 Payload
+        const payload = {
+            action: 'updateStock', // 讓後端區分這是盤點指令，非結帳指令
+            id: p.id,
+            stock: p.stock,
+            ts: Date.now()
+        };
+
+        const btn = document.querySelector(`button[onclick="syncSingleStock(${id})"]`);
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '⏳';
+        
+        // 發送更新請求
+        fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) })
+            .then(() => {
+                notify(`✅ [${p.name}] 庫存已更新為: ${p.stock}`);
+                document.getElementById(`inv-input-${id}`).classList.remove('unsynced');
+                btn.innerHTML = originalText;
+            })
+            .catch(e => {
+                notify("❌ 庫存同步失敗，請稍後再試", true);
+                btn.innerHTML = originalText;
+            });
+    }
+
     function renderInventory() {
         const tbody = document.getElementById('inventoryTbody');
         
-        // 過濾掉不需盤點的項目 (例如提袋或現萃茶，可依據需求調整，這裡依照原圖預設全列出)
-        // 依據截圖，我們特別排列呈現
         tbody.innerHTML = PRODUCTS.map(p => {
-            let badgeClass = '';
-            if (p.stock <= 0) badgeClass = 'danger';
-            else if (p.stock <= 5) badgeClass = 'warning';
-
             return `
             <tr>
                 <td class="inv-td-name">${p.name}</td>
                 <td class="inv-td-cost">$${p.cost}</td>
                 <td class="inv-td-price">$${p.price}</td>
-                <td><span class="inv-stock-badge ${badgeClass}">${p.stock}</span></td>
+                <td>
+                    <div class="stock-editor">
+                        <button class="btn-stock-adj" onclick="adjustStock(${p.id}, -1)">-</button>
+                        <input type="number" id="inv-input-${p.id}" class="inv-input" value="${p.stock}" onchange="handleStockInput(${p.id}, this.value)">
+                        <button class="btn-stock-adj" onclick="adjustStock(${p.id}, 1)">+</button>
+                        <button class="btn-stock-sync" onclick="syncSingleStock(${p.id})" title="儲存變更至雲端">💾 儲存</button>
+                    </div>
+                </td>
             </tr>
             `;
         }).join('');
@@ -363,7 +428,7 @@
     }
 
     function render() {
-        if(isInventoryView) return; // 如果在庫存模式不渲染 POS
+        if(isInventoryView) return; 
 
         const grid = document.getElementById('productGrid');
         grid.innerHTML = ""; let curCat = "";
