@@ -24,8 +24,8 @@
         
         .btn-toggle-view { background: #00e5ff; color: #151e2b; border: none; padding: 4px 12px; border-radius: 15px; font-size: 11px; font-weight: bold; cursor: pointer; margin-left: 15px; transition: 0.2s; }
         .btn-toggle-view:hover { background: #00b8cc; }
-        .btn-shift { background: #f39c12; color: white; border: none; padding: 4px 12px; border-radius: 15px; font-size: 11px; font-weight: bold; cursor: pointer; margin-left: 10px; transition: 0.2s; }
-        .btn-shift:hover { background: #e67e22; }
+        .btn-shift { background: #f39c12; color: white; border: none; padding: 4px 12px; border-radius: 15px; font-size: 11px; font-weight: bold; cursor: pointer; margin-left: 8px; transition: 0.2s; }
+        .btn-shift:hover { filter: brightness(1.1); }
 
         /* 商品展示區 (POS) */
         .product-area { flex: 7; padding: 20px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 15px; align-content: start; }
@@ -77,7 +77,7 @@
         .qr-wrapper { width: 250px; height: 250px; margin: 15px auto; background: white; display: flex; align-items: center; justify-content: center; border-radius: 12px; border: 1px solid #eee; overflow: hidden; }
         .qr-wrapper img { width: 100%; height: 100%; object-fit: contain; }
 
-        /* 輸入框樣式 (開班用) */
+        /* 輸入框樣式 */
         .modal-input { width: 100%; box-sizing: border-box; padding: 12px; margin-bottom: 15px; border: 2px solid #ecf0f1; border-radius: 8px; font-size: 16px; text-align: center; outline: none; transition: 0.3s; }
         .modal-input:focus { border-color: var(--primary); }
 
@@ -154,6 +154,32 @@
     </div>
 </div>
 
+<!-- 收班與業績結算彈窗 (新增) -->
+<div class="modal" id="closeShiftModal">
+    <div class="modal-body" style="width: 380px;">
+        <h3 style="margin-top:0; color:var(--primary);">📊 收班與業績結算</h3>
+        <p style="font-size: 13px; color: #7f8c8d; margin-bottom: 20px;">檢視本班次營業額並進行現金盤點對帳</p>
+        
+        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: left; font-size: 14px; margin-bottom: 15px; color: var(--primary);">
+            <div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span>開班零用金:</span><span id="cs-pettyCash" style="font-weight:bold;">$0</span></div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span>本班總營業額:</span><span id="cs-totalRev" style="font-weight:bold; color:var(--bank-blue);">$0</span></div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:12px; color:#7f8c8d;"><span>├ 現金營收:</span><span id="cs-cashRev">$0</span></div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:12px; color:#7f8c8d;"><span>└ 非現金營收 (Line/刷卡):</span><span id="cs-nonCashRev">$0</span></div>
+            <hr style="border:0; border-top:1px dashed #bdc3c7; margin:10px 0;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span>應有現金總額 (零用金+現金營收):</span><span id="cs-expectedCash" style="font-weight:900; color:var(--success); font-size:16px;">$0</span></div>
+        </div>
+
+        <div style="text-align:left; margin-bottom: 20px;">
+            <label style="font-size:12px; font-weight:bold; color:var(--primary);">實際盤點現金 (請清點抽屜內總現金)</label>
+            <input type="number" id="cs-actualCash" class="modal-input" style="margin-bottom:5px; margin-top:5px; font-size:24px; font-weight:bold;" oninput="calcDiscrepancy()">
+            <div style="font-size:13px; text-align:right;">短溢狀況: <span id="cs-diff" style="font-weight:bold; font-size:18px;">$0</span></div>
+        </div>
+        
+        <button class="btn-pay" style="background:var(--danger);" onclick="submitCloseShift()">確認收班並紀錄</button>
+        <button onclick="closeModal('closeShiftModal')" style="background:none; border:none; color:#bdc3c7; margin-top:15px; font-size:12px; cursor:pointer;">取消返回</button>
+    </div>
+</div>
+
 <div style="display:flex; flex-direction:column; width:100%; height: 100%;">
     <!-- 頂部狀態列 -->
     <div class="status-header">
@@ -161,7 +187,8 @@
             <span class="status-pill" id="netStatusPill">偵測中...</span>
             <span id="syncStatus" style="margin-left:10px;">雲端同步中...</span>
             <button class="btn-toggle-view" id="viewToggleBtn" onclick="toggleView()">📊 庫存管理</button>
-            <button class="btn-shift" onclick="openShiftModal()">💰 開班設定</button>
+            <button class="btn-shift" onclick="openShiftModal()">💰 開班</button>
+            <button class="btn-shift" style="background:var(--danger);" onclick="openCloseShiftModal()">📊 收班與業績</button>
         </div>
         <div>
             <span class="hw-dot active"></span> <span id="usbStatus">USB 掃描槍就緒</span>
@@ -191,7 +218,6 @@
                         <button class="opt-btn" onclick="setOpt('disc', 0.8, this)">8折</button>
                         <button class="opt-btn" onclick="toggleCustomDisc(this)">自訂</button>
                     </div>
-                    <!-- 隱藏的自訂折扣輸入區 -->
                     <div class="custom-disc-box" id="customDiscBox">
                         <input type="number" id="customDiscInput" placeholder="輸入折抵金額 (例如: 100)" min="0" onkeydown="if(event.key==='Enter') applyCustomDisc()">
                         <button onclick="applyCustomDisc()">套用</button>
@@ -243,7 +269,7 @@
         </div>
     </div>
 
-    <!-- 庫存監控與修改介面 (預設隱藏) -->
+    <!-- 庫存監控與修改介面 -->
     <div id="inventoryContainer">
         <div class="inv-header">
             <h2 class="inv-title">庫存管理</h2>
@@ -271,13 +297,11 @@
     // ===============================================
     // ⚠️ 請替換為您更新後的 Google Apps Script 網址 ⚠️
     // ===============================================
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby_S-b2DN3D6M-_zba5usRhyyjc1Lyf3Ns4g_UyAAAHJAyUUIrqlL_0Uva5NHpruzM_OQ/exec"; 
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwWWTZNNbSesSrb3WqHP1OrnwQLVPj5zzAV3XlDqDcocqR9kWzcwYl9hBFQcFKo0Hj84A/exec"; 
     
-    // 佔位圖示省略，維持原邏輯
     const LINE_PAY_IMG = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="; 
     const BANK_TRANSFER_IMG = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=";
     
-    // 擴充產品資料結構
     const PRODUCTS = [
         { id: 1, barcode: "1001", cat: "📦 茶葉與禮盒", name: '文山包種茶', cost: 160, price: 300, stock: 0 },
         { id: 16, barcode: "1016", cat: "📦 茶葉與禮盒", name: '98K大禺嶺 青心烏龍', cost: 160, price: 250, stock: 0 },
@@ -308,10 +332,16 @@
     let toastTimeout = null;
     let isInventoryView = false;
 
+    // 開收班狀態儲存 (從 LocalStorage 讀取)
+    let shiftData = null;
+
     window.onload = () => { loadData(); render(); initNet(); refreshStock(); setupUSB(); };
 
     // --- 開收班機制 ---
     function openShiftModal() {
+        if (shiftData) {
+            return notify("⚠️ 目前已經在開班狀態，請先收班", true);
+        }
         document.getElementById('shiftModal').style.display = 'flex';
         document.getElementById('pettyCashInput').focus();
     }
@@ -324,21 +354,14 @@
         if (isNaN(pettyCash) || pettyCash < 0 || cashValue === "") {
             return notify("❌ 請輸入有效的零用金金額", true);
         }
-
         if(!navigator.onLine) {
             return notify("⚠️ 離線狀態無法記錄開班資訊", true);
         }
-
         if (!SCRIPT_URL) {
             return notify("❌ 系統錯誤：未設定後端 API 網址", true);
         }
 
-        const payload = {
-            action: 'openShift',
-            pettyCash: pettyCash,
-            operator: operatorName,
-            ts: Date.now()
-        };
+        const payload = { action: 'openShift', pettyCash: pettyCash, operator: operatorName, ts: Date.now() };
 
         const btn = document.querySelector('#shiftModal .btn-pay');
         const originalText = btn.innerHTML;
@@ -348,13 +371,125 @@
         fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) })
             .then(() => {
                 notify(`✅ 開班成功！記錄零用金: $${pettyCash}`);
+                
+                // 將狀態寫入 LocalStorage 持久化保存
+                shiftData = { pettyCash: pettyCash, operator: operatorName, openTime: payload.ts };
+                localStorage.setItem('pos_shift_data', JSON.stringify(shiftData));
+                
                 closeModal('shiftModal');
-                // 清空輸入框以利下次使用
                 document.getElementById('pettyCashInput').value = '';
                 document.getElementById('operatorName').value = '';
             })
             .catch(e => {
                 notify("❌ 開班記錄失敗，請檢查連線", true);
+            })
+            .finally(() => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            });
+    }
+
+    // --- 收班與業績查詢機制 ---
+    function openCloseShiftModal() {
+        if (!shiftData) {
+            return notify("⚠️ 尚未開班，無法進行收班結算", true);
+        }
+
+        // 過濾出「本班次 (開班時間之後)」的所有訂單
+        const sessionOrders = allHistory.filter(o => o.ts >= shiftData.openTime);
+        
+        let totalRev = 0;
+        let cashRev = 0;
+        let nonCashRev = 0;
+
+        sessionOrders.forEach(o => {
+            totalRev += o.finalTotal;
+            if (o.method === '現金') {
+                cashRev += o.finalTotal;
+            } else {
+                nonCashRev += o.finalTotal;
+            }
+        });
+
+        // 渲染數據至彈窗
+        document.getElementById('cs-pettyCash').innerText = `$${shiftData.pettyCash.toLocaleString()}`;
+        document.getElementById('cs-totalRev').innerText = `$${totalRev.toLocaleString()}`;
+        document.getElementById('cs-cashRev').innerText = `$${cashRev.toLocaleString()}`;
+        document.getElementById('cs-nonCashRev').innerText = `$${nonCashRev.toLocaleString()}`;
+        
+        // 應有現金 = 初始零用金 + 本班現金營收
+        const expectedCash = shiftData.pettyCash + cashRev;
+        document.getElementById('cs-expectedCash').innerText = `$${expectedCash.toLocaleString()}`;
+        
+        // 預設將實際現金填入應有現金，方便操作
+        document.getElementById('cs-actualCash').value = expectedCash;
+        
+        // 隱藏在 HTML 屬性中，供計算使用
+        document.getElementById('cs-actualCash').setAttribute('data-expected', expectedCash);
+        document.getElementById('cs-actualCash').setAttribute('data-totalRev', totalRev);
+
+        calcDiscrepancy();
+        document.getElementById('closeShiftModal').style.display = 'flex';
+    }
+
+    function calcDiscrepancy() {
+        const expected = parseInt(document.getElementById('cs-actualCash').getAttribute('data-expected')) || 0;
+        const actual = parseInt(document.getElementById('cs-actualCash').value) || 0;
+        const diff = actual - expected;
+        
+        const diffEl = document.getElementById('cs-diff');
+        diffEl.innerText = diff > 0 ? `+$${diff.toLocaleString()}` : `$${diff.toLocaleString()}`;
+        
+        if (diff < 0) {
+            diffEl.style.color = 'var(--danger)'; // 負數為紅字
+        } else if (diff > 0) {
+            diffEl.style.color = 'var(--warning)'; // 溢出為橘字
+        } else {
+            diffEl.style.color = 'var(--success)'; // 吻合為綠字
+        }
+    }
+
+    function submitCloseShift() {
+        if(!navigator.onLine) return notify("⚠️ 離線狀態無法執行收班", true);
+        
+        const actual = parseInt(document.getElementById('cs-actualCash').value);
+        if (isNaN(actual) || actual < 0) return notify("❌ 請輸入有效的現金盤點金額", true);
+
+        const expected = parseInt(document.getElementById('cs-actualCash').getAttribute('data-expected')) || 0;
+        const totalRev = parseInt(document.getElementById('cs-actualCash').getAttribute('data-totalRev')) || 0;
+        const diff = actual - expected;
+
+        // 這裡向後端送出另一個 action: 'closeShift' 以供紀錄
+        // 若您的後端 (Code.gs) 尚未處理此 action，它會安全地忽略或被 default handler 攔截。
+        // 建議後續也可在 Code.gs 加入對 closeShift 的處理邏輯。
+        const payload = {
+            action: 'closeShift', // 提醒：Code.gs 可據此判斷並寫入對帳表
+            operator: shiftData.operator,
+            openTime: shiftData.openTime,
+            pettyCash: shiftData.pettyCash,
+            totalRev: totalRev,
+            expectedCash: expected,
+            actualCash: actual,
+            diff: diff,
+            ts: Date.now()
+        };
+
+        const btn = document.querySelector('#closeShiftModal .btn-pay');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '連線結算中...';
+        btn.disabled = true;
+
+        fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) })
+            .then(() => {
+                notify(`✅ 收班完成！本班營業額: $${totalRev}`);
+                closeModal('closeShiftModal');
+                
+                // 清除本地開班紀錄
+                localStorage.removeItem('pos_shift_data');
+                shiftData = null;
+            })
+            .catch(e => {
+                notify("❌ 收班記錄失敗，請檢查連線", true);
             })
             .finally(() => {
                 btn.innerHTML = originalText;
@@ -386,7 +521,7 @@
         }
     }
 
-    // --- 庫存系統修改邏輯 (Frontend Logic) ---
+    // --- 庫存系統修改邏輯 ---
     function adjustStock(id, delta) {
         const p = PRODUCTS.find(x => x.id === id);
         if (p) {
@@ -414,12 +549,7 @@
         const p = PRODUCTS.find(x => x.id === id);
         if(!p) return;
 
-        const payload = {
-            action: 'updateStock',
-            id: p.id,
-            stock: p.stock,
-            ts: Date.now()
-        };
+        const payload = { action: 'updateStock', id: p.id, stock: p.stock, ts: Date.now() };
 
         const btn = document.querySelector(`button[onclick="syncSingleStock(${id})"]`);
         const originalText = btn.innerHTML;
@@ -439,7 +569,6 @@
 
     function renderInventory() {
         const tbody = document.getElementById('inventoryTbody');
-        
         tbody.innerHTML = PRODUCTS.map(p => {
             return `
             <tr>
@@ -473,7 +602,6 @@
     function setupUSB() {
         document.addEventListener('keydown', (e) => {
             if(document.activeElement.tagName === 'INPUT') return;
-
             if (e.key === 'Enter') {
                 if (barcodeBuffer.length > 0) {
                     const p = PRODUCTS.find(x => x.barcode === barcodeBuffer);
@@ -499,7 +627,6 @@
 
     function render() {
         if(isInventoryView) return; 
-
         const grid = document.getElementById('productGrid');
         grid.innerHTML = ""; let curCat = "";
         PRODUCTS.forEach(p => {
@@ -521,6 +648,8 @@
     }
 
     function addToCart(id) {
+        if (!shiftData) return notify("⚠️ 尚未開班，無法進行結帳操作", true); // 新增防呆：未開班不能點單
+
         const p = PRODUCTS.find(x => x.id === id);
         const cartKey = `${id}_${Date.now()}_${Math.floor(Math.random()*1000)}`;
         const currentTotalQty = Object.values(cart).filter(item => item.id === id).length;
@@ -605,7 +734,6 @@
         const g = k === 'disc' ? 'discGrid' : k === 'gender' ? 'genderGrid' : k === 'age' ? 'ageGrid' : 'methodGrid';
         document.querySelectorAll(`#${g} .opt-btn`).forEach(b => b.classList.remove('active'));
         btn.classList.add('active'); 
-        
         if (k === 'disc') document.getElementById('customDiscBox').style.display = 'none';
         updateUI();
     }
@@ -621,7 +749,6 @@
     function applyCustomDisc() {
         const inputVal = parseFloat(document.getElementById('customDiscInput').value);
         if (isNaN(inputVal) || inputVal < 0) return notify("請輸入大於0的有效金額", true);
-        
         state.disc = -Math.abs(inputVal);
         updateUI();
         notify(`✅ 已應用折抵金額: $${inputVal}`);
@@ -630,11 +757,8 @@
 
     function handlePayAction() {
         if(Object.keys(cart).length === 0) return notify("購物清單為空", true);
-        
         const total = document.getElementById('finalTotal').innerText;
-        
         if(total === "$0") { executeFinalSync(); return; }
-        
         if(state.method === 'LinePay' || state.method === '轉帳') {
             document.getElementById('mTitle').innerText = state.method === 'LinePay' ? 'LINE Pay 收款' : '銀行轉帳資訊';
             document.getElementById('mQR').src = state.method === 'LinePay' ? LINE_PAY_IMG : BANK_TRANSFER_IMG;
@@ -681,11 +805,9 @@
         allHistory.push(payload);
         saveData();
         
-        // 更新本地庫存
         items.forEach(item => { const p = PRODUCTS.find(x => x.id === item.id); if (p) p.stock -= 1; });
         
         clearAll(); 
-        
         if(isInventoryView) renderInventory(); else render(); 
         
         processQueue();
@@ -702,10 +824,12 @@
         try {
             const q = localStorage.getItem('pos_v11_q'); 
             const h = localStorage.getItem('pos_v11_h');
+            const s = localStorage.getItem('pos_shift_data'); // 讀取開班資訊
             if(q) syncQueue = JSON.parse(q); 
             if(h) allHistory = JSON.parse(h);
+            if(s) shiftData = JSON.parse(s);
         } catch(e) {
-            syncQueue = []; allHistory = [];
+            syncQueue = []; allHistory = []; shiftData = null;
         }
         updateQueue(); 
     }
@@ -719,11 +843,7 @@
 
     async function processQueue() {
         if(!navigator.onLine || syncQueue.length === 0 || isSyncing) return;
-        
-        if(!SCRIPT_URL) {
-            console.error("無法同步：未設定 SCRIPT_URL");
-            return;
-        }
+        if(!SCRIPT_URL) return;
 
         isSyncing = true;
         const data = syncQueue[0];
@@ -741,8 +861,6 @@
 
     function refreshStock() {
         if (!SCRIPT_URL) return;
-        
-        // 修正：必須帶上參數，後端的 doGet 才會知道要回傳 JSON 庫存資料
         const fetchUrl = SCRIPT_URL.includes('?') ? SCRIPT_URL + '&action=getStock' : SCRIPT_URL + '?action=getStock';
         
         fetch(fetchUrl).then(r => r.json()).then(d => {
