@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🍵 茶葉 POS - 專業營運穩定版 (業績查詢)</title>
+    <title>🍵 茶葉 POS - 專業營運穩定版 (業績查詢+組合促銷)</title>
     <style>
         :root { 
             --primary: #2c3e50; --success: #27ae60; --warning: #f39c12; 
@@ -169,7 +169,6 @@
 
         <button class="btn-pay" style="background:var(--primary);" onclick="closeModal('salesModal')">確認並返回</button>
         
-        <!-- 結束班次防呆按鈕，讓系統重新計算下一班業績 -->
         <button onclick="endShiftOnly()" style="background:none; border:none; color:var(--danger); margin-top:15px; font-size:12px; cursor:pointer; text-decoration:underline;">
             結束本班次 (清除本機開班紀錄)
         </button>
@@ -253,8 +252,10 @@
             </div>
 
             <div class="footer-section">
+                <!-- 促銷引擎訊息區 -->
+                <div id="promoMessageContainer"></div>
                 <div class="price-row"><span>小計 (原價)</span><span id="subTotal">$0</span></div>
-                <div class="price-row"><span>折抵總計 (含贈品/折扣)</span><span id="discAmt" style="color:var(--danger)">-$0</span></div>
+                <div class="price-row"><span>折抵總計 (含贈品/折扣/組合價)</span><span id="discAmt" style="color:var(--danger)">-$0</span></div>
                 <div class="total-row">
                     <span style="color: #95a5a6; font-size: 14px;">應收總計</span>
                     <span class="total-val" id="finalTotal">$0</span>
@@ -298,6 +299,11 @@
     const LINE_PAY_IMG = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="; 
     const BANK_TRANSFER_IMG = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=";
     
+    // 促銷活動常數設定 (布丁混搭 3個180)
+    const PROMO_PUDDING_IDS = [20, 21, 22];  // 定義所有符合「3個180」資格的布丁 ID
+    const PUDDING_COMBO_PRICE = 180;         // 組合特價 $180
+    const PUDDING_COMBO_QTY = 3;             // 達成門檻數量
+
     const PRODUCTS = [
         // 📦 茶葉與禮盒
         { id: 1,  barcode: "1001", cat: "📦 茶葉與禮盒", name: '文山包種茶', cost: 150, price: 300, stock: 0 },
@@ -319,10 +325,11 @@
         { id: 15, barcode: "2015", cat: "🥤 現萃茶飲", name: '現萃-焙香茶穗', cost: 15, price: 60, stock: 0 },
         
         // 🍰 精緻甜點
-        { id: 20, barcode: "3001", cat: "🍰 精緻甜點", name: '經典原味司康', cost: 30, price: 60, stock: 0 },
-        { id: 21, barcode: "3002", cat: "🍰 精緻甜點", name: '巴斯克乳酪蛋糕', cost: 60, price: 120, stock: 0 },
-        { id: 22, barcode: "3003", cat: "🍰 精緻甜點", name: '法式可麗露', cost: 40, price: 80, stock: 0 },
-        { id: 23, barcode: "3004", cat: "🍰 精緻甜點", name: '抹茶生乳捲', cost: 70, price: 150, stock: 0 },
+       
+        { id: 20, barcode: "3001", cat: "🍰 精緻甜點", name: '包種茶布丁', cost: 50, price: 70, stock: 0 },
+        { id: 21, barcode: "3002", cat: "🍰 精緻甜點", name: '蜜香紅茶布丁', cost: 50, price: 70, stock: 0 },
+        { id: 22, barcode: "3003", cat: "🍰 精緻甜點", name: '原味布丁', cost: 45, price: 65, stock: 0 },
+
         
         // 🛍️ 其他
         { id: 12, barcode: "9001", cat: "🛍️ 其他", name: '提袋/包材', cost: 5, price: 10, stock: 0 },
@@ -402,9 +409,7 @@
             return notify("⚠️ 尚未開班，無法查詢業績", true);
         }
 
-        // 過濾出本班次的訂單
         const sessionOrders = allHistory.filter(o => o.ts >= shiftData.openTime);
-        
         let totalRev = 0;
         let cashRev = 0;
         let nonCashRev = 0;
@@ -418,7 +423,6 @@
             }
         });
 
-        // 渲染數據至彈窗
         document.getElementById('cs-pettyCash').innerText = `$${shiftData.pettyCash.toLocaleString()}`;
         document.getElementById('cs-totalRev').innerText = `$${totalRev.toLocaleString()}`;
         document.getElementById('cs-cashRev').innerText = `$${cashRev.toLocaleString()}`;
@@ -573,7 +577,8 @@
                 grid.innerHTML += `<div class="category-title">${p.cat}</div>`;
                 curCat = p.cat;
             }
-            const isOut = p.stock <= 0 && p.id < 20; 
+            // 防呆擴充至 ID < 30 的商品皆受庫存控管
+            const isOut = p.stock <= 0 && p.id < 30; 
             const lowClass = (p.stock > 0 && p.stock <= 5) ? 'low-stock' : '';
             grid.innerHTML += `
                 <div class="product-card ${isOut ? 'out-of-stock' : ''}" onclick="addToCart(${p.id})">
@@ -593,7 +598,8 @@
         const cartKey = `${id}_${Date.now()}_${Math.floor(Math.random()*1000)}`;
         const currentTotalQty = Object.values(cart).filter(item => item.id === id).length;
 
-        if (p.id < 20 && currentTotalQty + 1 > p.stock) return notify(`❌ 庫存不足`, true);
+        // 防呆擴充至 ID < 30 的商品皆受庫存控管
+        if (p.id < 30 && currentTotalQty + 1 > p.stock) return notify(`❌ 庫存不足`, true);
 
         cart[cartKey] = { ...p, qty: 1, type: 'normal', cartKey: cartKey };
         updateUI();
@@ -610,15 +616,18 @@
         updateUI();
     }
 
+    // 核心結算引擎 (含動態混搭促銷)
     function updateUI() {
         const list = document.getElementById('cartItems');
         const items = Object.values(cart);
+        const promoMsgContainer = document.getElementById('promoMessageContainer');
         
         if(items.length === 0) {
             list.innerHTML = `<div style="text-align:center; color:#bdc3c7; margin-top:50px;">尚未選擇商品</div>`;
             document.getElementById('subTotal').innerText = "$0";
             document.getElementById('discAmt').innerText = "-$0";
             document.getElementById('finalTotal').innerText = "$0";
+            promoMsgContainer.innerHTML = "";
             return;
         }
         
@@ -641,15 +650,58 @@
                 </div>
             </div>`).join('');
 
-        let sub = 0; let normalSub = 0; let itemDiscAmt = 0;
+        let sub = 0; 
+        let normalSub = 0; 
+        let itemDiscAmt = 0;
+        let eligiblePuddings = []; // 儲存所有符合資格的布丁價格
 
         items.forEach(i => {
             const lineTotal = i.price; 
             sub += lineTotal;
-            if (i.type === 'normal') normalSub += lineTotal;
-            else itemDiscAmt += lineTotal; 
+            if (i.type === 'normal') {
+                normalSub += lineTotal;
+                // 若屬於混搭促銷名單內的布丁，推入陣列以供後續計算
+                if (PROMO_PUDDING_IDS.includes(i.id)) {
+                    eligiblePuddings.push(i.price);
+                }
+            } else {
+                itemDiscAmt += lineTotal; 
+            }
         });
 
+        // 🟢 動態混搭促銷引擎計算 (任選 3 個布丁 180)
+        let comboDiscountAmount = 0;
+        
+        // 將布丁價格由高到低排序 (對消費者最有利的折扣演算法，業界標準)
+        eligiblePuddings.sort((a, b) => b - a);
+        const comboSets = Math.floor(eligiblePuddings.length / PUDDING_COMBO_QTY);
+        
+        if (comboSets > 0) {
+            for (let s = 0; s < comboSets; s++) {
+                // 取出每組的三個布丁價格並加總
+                const bundle = eligiblePuddings.slice(s * PUDDING_COMBO_QTY, (s + 1) * PUDDING_COMBO_QTY);
+                const bundleSum = bundle.reduce((a, b) => a + b, 0);
+                
+                // 確保組合價比原價便宜才給予折扣
+                const discountPerSet = bundleSum - PUDDING_COMBO_PRICE;
+                if (discountPerSet > 0) { 
+                    comboDiscountAmount += discountPerSet;
+                }
+            }
+            
+            // 從可折扣總額中扣除組合優惠，避免後續全單折扣重複計算
+            normalSub -= comboDiscountAmount;
+            
+            // 將組合優惠金額併入明細總折扣
+            itemDiscAmt += comboDiscountAmount;
+            
+            // 顯示動態促銷提示
+            promoMsgContainer.innerHTML = `<div style="font-size:12px; font-weight:bold; color:var(--danger); text-align:right; margin-bottom:8px;">🎉 已套用 ${comboSets} 組布丁優惠 (省下 $${comboDiscountAmount})</div>`;
+        } else {
+            promoMsgContainer.innerHTML = "";
+        }
+
+        // 🔵 整單折扣計算
         let final = normalSub;
         let globalDiscAmt = 0;
         
@@ -715,16 +767,25 @@
         
         const typeMap = { normal: '', sample: '(茶樣)', pr: '(公關)' };
         const printMap = {};
+        let eligiblePuddingCount = 0;
+
         items.forEach(i => {
             const key = `${i.name}${typeMap[i.type]}`;
             if(printMap[key]) printMap[key] += 1;
             else printMap[key] = 1;
+            
+            // 累計結帳明細中的促銷布丁總數
+            if (PROMO_PUDDING_IDS.includes(i.id) && i.type === 'normal') eligiblePuddingCount++;
         });
+        
         const itemsStr = Object.entries(printMap).map(([k, v]) => `${k}x${v}`).join(', ');
 
         let noteStr = '';
-        if (state.disc > 0 && state.disc < 1) noteStr = `整單折扣:${state.disc * 10}折`;
-        else if (state.disc < 0) noteStr = `整單折抵:$${Math.abs(state.disc)}`;
+        if (state.disc > 0 && state.disc < 1) noteStr += `整單折扣:${state.disc * 10}折 `;
+        else if (state.disc < 0) noteStr += `整單折抵:$${Math.abs(state.disc)} `;
+        
+        const comboSets = Math.floor(eligiblePuddingCount / PUDDING_COMBO_QTY);
+        if (comboSets > 0) noteStr += `(含布丁組合優惠x${comboSets})`;
 
         const aggregatedCartItems = [];
         items.forEach(i => {
@@ -737,7 +798,7 @@
             itemsString: itemsStr,
             cartItems: aggregatedCartItems,
             originalTotal: subtotal, discount: subtotal - total, finalTotal: total,
-            method: state.method, gender: state.gender, age: state.age, note: noteStr, ts: Date.now()
+            method: state.method, gender: state.gender, age: state.age, note: noteStr.trim(), ts: Date.now()
         };
         
         syncQueue.push(payload); 
