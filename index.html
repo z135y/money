@@ -81,6 +81,12 @@
         .modal-input { width: 100%; box-sizing: border-box; padding: 12px; margin-bottom: 15px; border: 2px solid #ecf0f1; border-radius: 8px; font-size: 16px; text-align: center; outline: none; transition: 0.3s; }
         .modal-input:focus { border-color: var(--primary); }
 
+        /* 零用金面額網格樣式 */
+        .denom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; text-align: left; }
+        .denom-item { display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: #34495e; background: #f9f9f9; padding: 5px 10px; border-radius: 6px;}
+        .denom-item input { width: 50px; padding: 4px; border: 1px solid #bdc3c7; border-radius: 4px; text-align: center; font-size: 14px;}
+        .denom-total-row { margin-bottom: 15px; font-weight: bold; color: var(--danger); font-size: 18px; }
+
         #toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); padding: 12px 25px; border-radius: 30px; color: white; display: none; z-index: 11000; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
 
         /* ================= 庫存監控系統 UI ================= */
@@ -142,11 +148,22 @@
 
 <!-- 開班零用金彈窗 -->
 <div class="modal" id="shiftModal">
-    <div class="modal-body">
+    <div class="modal-body" style="width: 380px;">
         <h3 style="margin-top:0; color:var(--primary);">💰 開班設定</h3>
-        <p style="font-size: 13px; color: #7f8c8d; margin-bottom: 20px;">請輸入今日收銀機內的初始零用金金額<br>以啟動結帳與業績累計功能</p>
+        <p style="font-size: 13px; color: #7f8c8d; margin-bottom: 15px;">請輸入各面額數量，系統將自動加總<br>以啟動結帳與業績累計功能</p>
         
-        <input type="number" id="pettyCashInput" class="modal-input" placeholder="輸入零用金金額 (例如: 2000)" min="0">
+        <div class="denom-grid">
+            <div class="denom-item"><span>$1000</span> <input type="number" id="den_1000" min="0" value="0" oninput="calcTotal()"></div>
+            <div class="denom-item"><span>$500</span> <input type="number" id="den_500" min="0" value="0" oninput="calcTotal()"></div>
+            <div class="denom-item"><span>$100</span> <input type="number" id="den_100" min="0" value="0" oninput="calcTotal()"></div>
+            <div class="denom-item"><span>$50</span> <input type="number" id="den_50" min="0" value="0" oninput="calcTotal()"></div>
+            <div class="denom-item"><span>$10</span> <input type="number" id="den_10" min="0" value="0" oninput="calcTotal()"></div>
+            <div class="denom-item"><span>$5</span> <input type="number" id="den_5" min="0" value="0" oninput="calcTotal()"></div>
+            <div class="denom-item"><span>$1</span> <input type="number" id="den_1" min="0" value="0" oninput="calcTotal()"></div>
+        </div>
+        
+        <div class="denom-total-row">總計: $<span id="pettyCashTotal">0</span></div>
+        
         <input type="text" id="operatorName" class="modal-input" placeholder="操作人員姓名 (選填)">
         
         <button class="btn-pay" style="background:var(--warning);" onclick="submitOpenShift()">確認開班</button>
@@ -356,21 +373,46 @@
     window.onload = () => { loadData(); render(); initNet(); refreshStock(); setupUSB(); };
 
     // --- 開班機制 ---
+    function calcTotal() {
+        const d1000 = parseInt(document.getElementById('den_1000').value) || 0;
+        const d500 = parseInt(document.getElementById('den_500').value) || 0;
+        const d100 = parseInt(document.getElementById('den_100').value) || 0;
+        const d50 = parseInt(document.getElementById('den_50').value) || 0;
+        const d10 = parseInt(document.getElementById('den_10').value) || 0;
+        const d5 = parseInt(document.getElementById('den_5').value) || 0;
+        const d1 = parseInt(document.getElementById('den_1').value) || 0;
+        
+        const total = (d1000 * 1000) + (d500 * 500) + (d100 * 100) + (d50 * 50) + (d10 * 10) + (d5 * 5) + (d1 * 1);
+        document.getElementById('pettyCashTotal').innerText = total;
+    }
+
     function openShiftModal() {
         if (shiftData) {
             return notify("⚠️ 目前已經在開班狀態", true);
         }
         document.getElementById('shiftModal').style.display = 'flex';
-        document.getElementById('pettyCashInput').focus();
+        // 開啟時重置所有面額與總計
+        ['1000', '500', '100', '50', '10', '5', '1'].forEach(d => document.getElementById(`den_${d}`).value = 0);
+        calcTotal();
+        document.getElementById('operatorName').focus();
     }
 
     function submitOpenShift() {
-        const cashValue = document.getElementById('pettyCashInput').value;
         const operatorName = document.getElementById('operatorName').value;
-        const pettyCash = parseInt(cashValue);
+        const pettyCash = parseInt(document.getElementById('pettyCashTotal').innerText);
 
-        if (isNaN(pettyCash) || pettyCash < 0 || cashValue === "") {
-            return notify("❌ 請輸入有效的零用金金額", true);
+        const denominations = {
+            "1000": parseInt(document.getElementById('den_1000').value) || 0,
+            "500": parseInt(document.getElementById('den_500').value) || 0,
+            "100": parseInt(document.getElementById('den_100').value) || 0,
+            "50": parseInt(document.getElementById('den_50').value) || 0,
+            "10": parseInt(document.getElementById('den_10').value) || 0,
+            "5": parseInt(document.getElementById('den_5').value) || 0,
+            "1": parseInt(document.getElementById('den_1').value) || 0
+        };
+
+        if (isNaN(pettyCash) || pettyCash < 0) {
+            return notify("❌ 請輸入有效的零用金數量", true);
         }
         if(!navigator.onLine) {
             return notify("⚠️ 離線狀態無法記錄開班資訊", true);
@@ -379,7 +421,13 @@
             return notify("❌ 系統錯誤：未設定後端 API 網址", true);
         }
 
-        const payload = { action: 'openShift', pettyCash: pettyCash, operator: operatorName, ts: Date.now() };
+        const payload = { 
+            action: 'openShift', 
+            pettyCash: pettyCash, 
+            operator: operatorName, 
+            denominations: denominations, 
+            ts: Date.now() 
+        };
 
         const btn = document.querySelector('#shiftModal .btn-pay');
         const originalText = btn.innerHTML;
@@ -395,7 +443,7 @@
                 localStorage.setItem('pos_shift_data', JSON.stringify(shiftData));
                 
                 closeModal('shiftModal');
-                document.getElementById('pettyCashInput').value = '';
+                ['1000', '500', '100', '50', '10', '5', '1'].forEach(d => document.getElementById(`den_${d}`).value = 0);
                 document.getElementById('operatorName').value = '';
             })
             .catch(e => {
