@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🍵 茶葉 POS - 旗艦營運版 (全班次面額點鈔+改帳作廢+找零+掛單)</title>
+    <title>🍵 茶葉 POS - 旗艦營運版 (動態新增商品+全班次面額點鈔+改帳作廢)</title>
     <style>
         :root { 
             --primary: #2c3e50; --success: #27ae60; --warning: #f39c12; 
@@ -81,8 +81,15 @@
         .qr-wrapper { width: 220px; height: 220px; margin: 10px auto; background: white; display: flex; align-items: center; justify-content: center; border-radius: 12px; border: 1px solid #eee; overflow: hidden; }
         .qr-wrapper img { width: 100%; height: 100%; object-fit: contain; }
 
-        .modal-input { width: 100%; box-sizing: border-box; padding: 10px; margin-bottom: 12px; border: 2px solid #ecf0f1; border-radius: 8px; font-size: 15px; text-align: center; outline: none; transition: 0.3s; }
+        .modal-input { width: 100%; box-sizing: border-box; padding: 10px; margin-bottom: 10px; border: 2px solid #ecf0f1; border-radius: 8px; font-size: 14px; text-align: center; outline: none; transition: 0.3s; }
         .modal-input:focus { border-color: var(--primary); }
+
+        /* 表單欄位樣式 (新增商品用) */
+        .form-group { text-align: left; margin-bottom: 10px; }
+        .form-group label { display: block; font-size: 12px; font-weight: bold; color: var(--primary); margin-bottom: 4px; }
+        .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .form-input { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #bdc3c7; border-radius: 6px; font-size: 13px; outline: none; }
+        .form-input:focus { border-color: var(--bank-blue); }
 
         /* 零用金與交班點鈔面額網格 */
         .denom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 10px; text-align: left; }
@@ -104,21 +111,26 @@
 
         /* 庫存監控系統 UI */
         #inventoryContainer { display: none; flex: 1; background-color: var(--inv-bg); padding: 30px 40px; overflow-y: auto; color: var(--inv-text); }
-        .inv-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; }
+        .inv-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
         .inv-title { color: var(--inv-border); font-size: 26px; font-weight: bold; margin: 0; letter-spacing: 1px; }
-        .inv-subtitle { color: var(--inv-th); font-size: 13px; }
+        .inv-subtitle { color: var(--inv-th); font-size: 13px; display: block; margin-top: 4px; }
+        .btn-add-prod { background: linear-gradient(135deg, #00e676, #00b862); color: #0f172a; border: none; padding: 10px 18px; border-radius: 8px; font-size: 14px; font-weight: 900; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 15px rgba(0, 230, 118, 0.25); transition: 0.2s; }
+        .btn-add-prod:hover { transform: translateY(-1px); filter: brightness(1.08); }
+
         .inv-table-wrapper { border: 2px solid var(--inv-border); border-radius: 10px; background-color: #1b2635; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 229, 255, 0.05); }
         .inv-table { width: 100%; border-collapse: collapse; text-align: left; }
-        .inv-table th { padding: 16px 20px; background-color: #1e2b3c; color: var(--inv-th); font-size: 14px; border-bottom: 1px solid #2d3b4e; font-weight: 600; }
-        .inv-table td { padding: 16px 20px; border-bottom: 1px solid #2d3b4e; font-size: 15px; color: #f7fafc; vertical-align: middle; }
+        .inv-table th { padding: 14px 18px; background-color: #1e2b3c; color: var(--inv-th); font-size: 13px; border-bottom: 1px solid #2d3b4e; font-weight: 600; }
+        .inv-table td { padding: 14px 18px; border-bottom: 1px solid #2d3b4e; font-size: 14px; color: #f7fafc; vertical-align: middle; }
         .inv-td-name { font-weight: bold; color: #ffffff; }
-        .inv-td-cost { color: #a0aec0; }
-        .inv-td-price { color: var(--inv-price); font-weight: bold; font-family: monospace; font-size: 16px; }
+        .inv-td-cost { color: #a0aec0; font-family: monospace; }
+        .inv-td-price { color: var(--inv-price); font-weight: bold; font-family: monospace; font-size: 15px; }
         .stock-editor { display: flex; align-items: center; gap: 8px; }
         .btn-stock-adj { background-color: #2d3b4e; border: 1px solid #4a5568; color: #e2e8f0; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-weight: bold; }
         .inv-input { width: 60px; height: 28px; background-color: #0f172a; border: 1px solid #4a5568; color: #00e5ff; text-align: center; border-radius: 6px; font-family: monospace; font-size: 15px; font-weight: bold; outline: none; }
         .inv-input.unsynced { border-color: var(--warning); color: var(--warning); }
         .btn-stock-sync { background-color: #0984e3; border: none; color: white; border-radius: 6px; height: 28px; padding: 0 10px; font-size: 12px; cursor: pointer; font-weight: bold; }
+        .btn-prod-del { background-color: transparent; border: 1px solid #e74c3c; color: #e74c3c; border-radius: 6px; height: 28px; padding: 0 8px; font-size: 12px; cursor: pointer; transition: 0.2s; }
+        .btn-prod-del:hover { background-color: #e74c3c; color: white; }
 
         /* 熱感應出單列印專用樣式 (58mm/80mm) */
         #printArea { display: none; }
@@ -138,8 +150,69 @@
 <body>
 
 <div id="toast"></div>
-<!-- 熱感應列印隱藏區塊 -->
 <div id="printArea"></div>
+
+<!-- 0. 新增商品彈窗 (庫存管理模組新增功能) -->
+<div class="modal" id="addProductModal">
+    <div class="modal-body" style="width: 400px;">
+        <h3 style="margin-top:0; margin-bottom:12px; color:var(--primary);">➕ 新增商品建檔 (SKU)</h3>
+        
+        <div class="form-group">
+            <label>商品分類</label>
+            <div style="display:flex; gap:6px;">
+                <select id="newProdCatSelect" class="form-input" onchange="toggleCustomCatInput(this.value)">
+                    <option value="📦 茶葉與禮盒">📦 茶葉與禮盒</option>
+                    <option value="🥤 現萃茶飲">🥤 現萃茶飲</option>
+                    <option value="🍰 精緻甜點">🍰 精緻甜點</option>
+                    <option value="🛍️ 其他">🛍️ 其他</option>
+                    <option value="__custom__">✏️ 自訂新分類...</option>
+                </select>
+            </div>
+            <input type="text" id="newProdCustomCat" class="form-input" placeholder="輸入新分類名稱 (如: 🎁 節慶限定)" style="display:none; margin-top:6px;">
+        </div>
+
+        <div class="form-group">
+            <label>商品條碼 (可直接刷條碼或自動配號)</label>
+            <div style="display:flex; gap:6px;">
+                <input type="text" id="newProdBarcode" class="form-input" placeholder="如: 1020 或國際條碼">
+                <button type="button" onclick="generateAutoBarcode()" style="background:#ecf0f1; border:1px solid #bdc3c7; border-radius:6px; padding:0 10px; font-size:12px; font-weight:bold; color:var(--primary); cursor:pointer; white-space:nowrap;">🎲 自動配號</button>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>商品名稱</label>
+            <input type="text" id="newProdName" class="form-input" placeholder="輸入商品名稱 (如: 坪林桂花包種)">
+        </div>
+
+        <div class="form-row-2">
+            <div class="form-group">
+                <label>單位成本 ($)</label>
+                <input type="number" id="newProdCost" class="form-input" min="0" value="0">
+            </div>
+            <div class="form-group">
+                <label>銷售單價 ($)</label>
+                <input type="number" id="newProdPrice" class="form-input" min="0" value="100">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>初始庫存數量</label>
+            <input type="number" id="newProdStock" class="form-input" min="0" value="10">
+        </div>
+
+        <div style="background:#f8f9fa; padding:10px 12px; border-radius:8px; text-align:left; font-size:12px; margin-bottom:15px; display:flex; flex-direction:column; gap:8px;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--primary); font-weight:bold;">
+                <input type="checkbox" id="newProdTrackStock" checked> 啟用庫存防呆控管 (庫存 0 時鎖定禁售)
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#0984e3; font-weight:bold;">
+                <input type="checkbox" id="newProdCustomDrink"> 點選時彈出「現萃飲品客製化 (冰量/風味)」
+            </label>
+        </div>
+
+        <button class="btn-pay" onclick="submitNewProduct()">💾 確認新增並同步雲端</button>
+        <button onclick="closeModal('addProductModal')" style="background:none; border:none; color:#7f8c8d; margin-top:12px; font-size:12px; cursor:pointer;">取消返回</button>
+    </div>
+</div>
 
 <!-- 1. 飲品客製化彈窗 -->
 <div class="modal" id="drinkModal">
@@ -214,7 +287,7 @@
     </div>
 </div>
 
-<!-- 4. 開班零用金彈窗 (含各面額小計) -->
+<!-- 4. 開班零用金彈窗 -->
 <div class="modal" id="shiftModal">
     <div class="modal-body" style="width: 400px;">
         <h3 style="margin-top:0; color:var(--primary);">💰 開班點鈔設定</h3>
@@ -235,12 +308,11 @@
     </div>
 </div>
 
-<!-- 5. 小結與關帳對帳中心彈窗 (升級：逐一面額清點與比對) -->
+<!-- 5. 小結與關帳對帳中心彈窗 -->
 <div class="modal" id="salesModal">
     <div class="modal-body" style="width: 430px;">
         <h3 style="margin-top:0; margin-bottom:10px; color:var(--primary);">📊 小結交班 / 關帳點鈔中心</h3>
         
-        <!-- 帳務應有金額摘要 -->
         <div style="background: #f8f9fa; padding: 10px 14px; border-radius: 10px; text-align: left; font-size: 12px; margin-bottom: 10px; color: var(--primary); line-height: 1.6;">
             <div style="display:flex; justify-content:space-between;"><span>當班人員 / 開班時間:</span><span id="cs-info" style="font-weight:bold;">-</span></div>
             <div style="display:flex; justify-content:space-between;"><span>① 開班零用金:</span><span id="cs-pettyCash" style="font-weight:bold;">$0</span></div>
@@ -255,7 +327,6 @@
             <div style="display:flex; justify-content:space-between; font-size:11px; color:#7f8c8d;"><span>有效單數 / 已作廢單數:</span><span id="cs-orderCounts">0 筆 / 0 筆</span></div>
         </div>
 
-        <!-- 小結/關帳 各面額實盤清點區 -->
         <div style="background:#fff9e6; border:1px solid #f39c12; padding:10px 12px; border-radius:10px; margin-bottom:12px; text-align:left;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                 <span style="font-size:12px; font-weight:bold; color:#d35400;">🔍 交班/關帳 錢箱各面額實點數量：</span>
@@ -398,21 +469,27 @@
         </div>
     </div>
 
-    <!-- 庫存監控與修改介面 -->
+    <!-- 庫存監控與新增商品介面 -->
     <div id="inventoryContainer">
         <div class="inv-header">
-            <h2 class="inv-title">庫存管理</h2>
-            <span class="inv-subtitle">即時庫存監控與修改 (資料來源：Google Sheets)</span>
+            <div>
+                <h2 class="inv-title">庫存與商品管理</h2>
+                <span class="inv-subtitle">即時庫存監控、調整與新商品 SKU 建檔 (資料來源：本機快取 + Google Sheets)</span>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button class="btn-add-prod" onclick="openAddProductModal()">➕ 新增商品</button>
+            </div>
         </div>
         <div class="inv-table-wrapper">
             <table class="inv-table">
                 <thead>
                     <tr>
-                        <th>條碼</th>
+                        <th>ID / 條碼</th>
+                        <th>分類</th>
                         <th>品名</th>
                         <th>成本</th>
                         <th>售價</th>
-                        <th>庫存數量與調整</th>
+                        <th>庫存數量與操作</th>
                     </tr>
                 </thead>
                 <tbody id="inventoryTbody"></tbody>
@@ -431,38 +508,40 @@
     const PUDDING_COMBO_QTY = 3;
     const DENOM_LIST = [1000, 500, 100, 50, 10, 5, 1];
 
-    const PRODUCTS = [
-        { id: 1,  barcode: "1001", cat: "📦 茶葉與禮盒", name: '文山包種茶', cost: 150, price: 300, stock: 0 },
-        { id: 2,  barcode: "1002", cat: "📦 茶葉與禮盒", name: '蜜香紅茶', cost: 200, price: 350, stock: 0 },
-        { id: 3,  barcode: "1003", cat: "📦 茶葉與禮盒", name: '阿里山紅烏龍', cost: 360, price: 450, stock: 0 },
-        { id: 4,  barcode: "1004", cat: "📦 茶葉與禮盒", name: '南投凍頂烏龍', cost: 280, price: 350, stock: 0 },
-        { id: 5,  barcode: "1005", cat: "📦 茶葉與禮盒", name: '茶山漫遊禮盒', cost: 500, price: 1100, stock: 0 },
-        { id: 6,  barcode: "1006", cat: "📦 茶葉與禮盒", name: '茶包(10入)', cost: 90, price: 300, stock: 0 },
-        { id: 13, barcode: "1013", cat: "📦 茶葉與禮盒", name: '阿里山金萱', cost: 640, price: 800, stock: 0 },
-        { id: 14, barcode: "1014", cat: "📦 茶葉與禮盒", name: '銀質包種禮盒', cost: 500, price: 1200, stock: 0 },
-        { id: 16, barcode: "1016", cat: "📦 茶葉與禮盒", name: '98K大禺嶺 青心烏龍', cost: 680, price: 850, stock: 0 },
-        { id: 17, barcode: "8001", cat: "📦 茶葉與禮盒", name: '阿里山青心烏龍', cost: 600, price: 750, stock: 0 },
-        { id: 18, barcode: "6001", cat: "📦 茶葉與禮盒", name: '東方美人', cost: 200, price: 400, stock: 0 },
-        { id: 23, barcode: "6002", cat: "📦 茶葉與禮盒", name: '茶包單入', cost: 6, price: 15, stock: 0 },
-        { id: 24, barcode: "6003", cat: "📦 茶葉與禮盒", name: '杉林溪', cost: 650, price: 800, stock: 0 },
-        { id: 25, barcode: "6004", cat: "📦 茶葉與禮盒", name: '石卓', cost: 650, price: 800, stock: 0 },
+    // 預設基準商品清單 (含 trackStock 庫存控管屬性)
+    const DEFAULT_PRODUCTS = [
+        { id: 1,  barcode: "1001", cat: "📦 茶葉與禮盒", name: '文山包種茶', cost: 150, price: 300, stock: 0, trackStock: true },
+        { id: 2,  barcode: "1002", cat: "📦 茶葉與禮盒", name: '蜜香紅茶', cost: 200, price: 350, stock: 0, trackStock: true },
+        { id: 3,  barcode: "1003", cat: "📦 茶葉與禮盒", name: '阿里山紅烏龍', cost: 360, price: 450, stock: 0, trackStock: true },
+        { id: 4,  barcode: "1004", cat: "📦 茶葉與禮盒", name: '南投凍頂烏龍', cost: 280, price: 350, stock: 0, trackStock: true },
+        { id: 5,  barcode: "1005", cat: "📦 茶葉與禮盒", name: '茶山漫遊禮盒', cost: 500, price: 1100, stock: 0, trackStock: true },
+        { id: 6,  barcode: "1006", cat: "📦 茶葉與禮盒", name: '茶包(10入)', cost: 90, price: 300, stock: 0, trackStock: true },
+        { id: 13, barcode: "1013", cat: "📦 茶葉與禮盒", name: '阿里山金萱', cost: 640, price: 800, stock: 0, trackStock: true },
+        { id: 14, barcode: "1014", cat: "📦 茶葉與禮盒", name: '銀質包種禮盒', cost: 500, price: 1200, stock: 0, trackStock: true },
+        { id: 16, barcode: "1016", cat: "📦 茶葉與禮盒", name: '98K大禺嶺 青心烏龍', cost: 680, price: 850, stock: 0, trackStock: true },
+        { id: 17, barcode: "8001", cat: "📦 茶葉與禮盒", name: '阿里山青心烏龍', cost: 600, price: 750, stock: 0, trackStock: true },
+        { id: 18, barcode: "6001", cat: "📦 茶葉與禮盒", name: '東方美人', cost: 200, price: 400, stock: 0, trackStock: true },
+        { id: 23, barcode: "6002", cat: "📦 茶葉與禮盒", name: '茶包單入', cost: 6, price: 15, stock: 0, trackStock: true },
+        { id: 24, barcode: "6003", cat: "📦 茶葉與禮盒", name: '杉林溪', cost: 650, price: 800, stock: 0, trackStock: true },
+        { id: 25, barcode: "6004", cat: "📦 茶葉與禮盒", name: '石卓', cost: 650, price: 800, stock: 0, trackStock: true },
         
         // 🥤 現萃茶飲
-        { id: 7,  barcode: "2007", cat: "🥤 現萃茶飲", name: '現萃-文山包種', cost: 15, price: 60, stock: 0, custom: true },
-        { id: 8,  barcode: "2008", cat: "🥤 現萃茶飲", name: '現萃-蜜香紅茶', cost: 15, price: 60, stock: 0, custom: true },
-        { id: 11, barcode: "2011", cat: "🥤 現萃茶飲", name: '冷泡茶 (瓶)', cost: 20, price: 60, stock: 0, custom: false },
-        { id: 15, barcode: "2015", cat: "🥤 現萃茶飲", name: '現萃-焙香茶穗', cost: 15, price: 60, stock: 0, custom: true },
+        { id: 7,  barcode: "2007", cat: "🥤 現萃茶飲", name: '現萃-文山包種', cost: 15, price: 60, stock: 0, custom: true, trackStock: true },
+        { id: 8,  barcode: "2008", cat: "🥤 現萃茶飲", name: '現萃-蜜香紅茶', cost: 15, price: 60, stock: 0, custom: true, trackStock: true },
+        { id: 11, barcode: "2011", cat: "🥤 現萃茶飲", name: '冷泡茶 (瓶)', cost: 20, price: 60, stock: 0, custom: false, trackStock: true },
+        { id: 15, barcode: "2015", cat: "🥤 現萃茶飲", name: '現萃-焙香茶穗', cost: 15, price: 60, stock: 0, custom: true, trackStock: true },
         
         // 🍰 精緻甜點
-        { id: 20, barcode: "3001", cat: "🍰 精緻甜點", name: '包種茶布丁', cost: 50, price: 70, stock: 0 },
-        { id: 21, barcode: "3002", cat: "🍰 精緻甜點", name: '蜜香紅茶布丁', cost: 50, price: 70, stock: 0 },
-        { id: 22, barcode: "3003", cat: "🍰 精緻甜點", name: '原味布丁', cost: 45, price: 65, stock: 0 },
+        { id: 20, barcode: "3001", cat: "🍰 精緻甜點", name: '包種茶布丁', cost: 50, price: 70, stock: 0, trackStock: true },
+        { id: 21, barcode: "3002", cat: "🍰 精緻甜點", name: '蜜香紅茶布丁', cost: 50, price: 70, stock: 0, trackStock: true },
+        { id: 22, barcode: "3003", cat: "🍰 精緻甜點", name: '原味布丁', cost: 45, price: 65, stock: 0, trackStock: true },
 
         // 🛍️ 其他
-        { id: 12, barcode: "9001", cat: "🛍️ 其他", name: '提袋/包材', cost: 5, price: 10, stock: 0 },
-        { id: 19, barcode: "9002", cat: "🛍️ 其他", name: '紙包茶體驗', cost: 340, price: 500, stock: 0 }
+        { id: 12, barcode: "9001", cat: "🛍️ 其他", name: '提袋/包材', cost: 5, price: 10, stock: 0, trackStock: true },
+        { id: 19, barcode: "9002", cat: "🛍️ 其他", name: '紙包茶體驗', cost: 340, price: 500, stock: 0, trackStock: true }
     ];
 
+    let PRODUCTS = [...DEFAULT_PRODUCTS];
     let cart = {};
     let heldOrders = [];
     let state = { disc: 0, gender: '未知', age: '51+', method: '現金' };
@@ -479,6 +558,131 @@
 
     window.onload = () => { loadData(); render(); initNet(); refreshStock(); setupUSB(); };
 
+    // --- 0. 新增商品與刪除商品機制 (SKU 動態管理) ---
+    function syncCategorySelectOptions() {
+        const select = document.getElementById('newProdCatSelect');
+        const uniqueCats = [...new Set(PRODUCTS.map(p => p.cat))];
+        select.innerHTML = uniqueCats.map(c => `<option value="${c}">${c}</option>`).join('') +
+            `<option value="__custom__">✏️ 自訂新分類...</option>`;
+        document.getElementById('newProdCustomCat').style.display = 'none';
+    }
+
+    function toggleCustomCatInput(val) {
+        const customInput = document.getElementById('newProdCustomCat');
+        if (val === '__custom__') {
+            customInput.style.display = 'block';
+            customInput.focus();
+        } else {
+            customInput.style.display = 'none';
+        }
+    }
+
+    function generateAutoBarcode() {
+        let candidate = 1020;
+        const existingBarcodes = new Set(PRODUCTS.map(p => String(p.barcode)));
+        while (existingBarcodes.has(String(candidate))) {
+            candidate++;
+        }
+        document.getElementById('newProdBarcode').value = String(candidate);
+    }
+
+    function openAddProductModal() {
+        syncCategorySelectOptions();
+        generateAutoBarcode();
+        document.getElementById('newProdName').value = '';
+        document.getElementById('newProdCost').value = 0;
+        document.getElementById('newProdPrice').value = 100;
+        document.getElementById('newProdStock').value = 10;
+        document.getElementById('newProdTrackStock').checked = true;
+        document.getElementById('newProdCustomDrink').checked = false;
+        document.getElementById('addProductModal').style.display = 'flex';
+        document.getElementById('newProdName').focus();
+    }
+
+    function submitNewProduct() {
+        const catSelectVal = document.getElementById('newProdCatSelect').value;
+        const cat = catSelectVal === '__custom__' 
+            ? document.getElementById('newProdCustomCat').value.trim() 
+            : catSelectVal;
+        const barcode = document.getElementById('newProdBarcode').value.trim();
+        const name = document.getElementById('newProdName').value.trim();
+        const cost = parseInt(document.getElementById('newProdCost').value) || 0;
+        const price = parseInt(document.getElementById('newProdPrice').value) || 0;
+        const stock = parseInt(document.getElementById('newProdStock').value) || 0;
+        const trackStock = document.getElementById('newProdTrackStock').checked;
+        const custom = document.getElementById('newProdCustomDrink').checked;
+
+        if (!cat) return notify("❌ 請選擇或輸入商品分類", true);
+        if (!barcode) return notify("❌ 請輸入商品條碼或點擊自動配號", true);
+        if (!name) return notify("❌ 請輸入商品名稱", true);
+        if (cost < 0 || price < 0 || stock < 0) return notify("❌ 成本、售價與庫存不可為負數", true);
+
+        // 檢核條碼唯一性
+        const dupBarcode = PRODUCTS.find(p => String(p.barcode) === barcode);
+        if (dupBarcode) {
+            return notify(`❌ 條碼 [${barcode}] 已與「${dupBarcode.name}」重複！請更換條碼`, true);
+        }
+
+        // 檢核毛利倒掛防呆
+        if (price < cost) {
+            if (!confirm(`⚠️ 毛利防呆提醒：您設定的售價 ($${price}) 低於進貨成本 ($${cost})，確定要建立此商品嗎？`)) return;
+        }
+
+        const nextId = PRODUCTS.reduce((max, p) => Math.max(max, p.id), 0) + 1;
+        const newProduct = {
+            id: nextId,
+            barcode: barcode,
+            cat: cat,
+            name: name,
+            cost: cost,
+            price: price,
+            stock: stock,
+            custom: custom,
+            trackStock: trackStock
+        };
+
+        PRODUCTS.push(newProduct);
+        saveProductsCatalog();
+
+        // 排入雲端同步佇列
+        syncQueue.push({
+            action: 'addProduct',
+            product: newProduct,
+            ts: Date.now()
+        });
+        saveData();
+        processQueue();
+
+        closeModal('addProductModal');
+        renderInventory();
+        render();
+        notify(`✅ 已成功新增商品：[${name}] (ID: ${nextId})`);
+    }
+
+    function deleteProduct(id) {
+        const inCart = Object.values(cart).some(i => i.id === id);
+        if (inCart) return notify("❌ 該商品目前在購物車中，請先清空購物車再刪除", true);
+
+        const target = PRODUCTS.find(p => p.id === id);
+        if (!target) return;
+        if (!confirm(`確定要從系統移除商品「${target.name} (條碼: ${target.barcode})」嗎？`)) return;
+
+        PRODUCTS = PRODUCTS.filter(p => p.id !== id);
+        saveProductsCatalog();
+
+        syncQueue.push({ action: 'deleteProduct', id: id, name: target.name, ts: Date.now() });
+        saveData();
+        processQueue();
+
+        renderInventory();
+        render();
+        notify(`🗑️ 已移除商品：${target.name}`);
+    }
+
+    function saveProductsCatalog() {
+        localStorage.setItem('pos_v11_products', JSON.stringify(PRODUCTS));
+    }
+
     // --- 面額格式化工具函式 ---
     function formatDenomString(denomObj) {
         if (!denomObj) return "無紀錄";
@@ -490,7 +694,7 @@
         return parts.length > 0 ? parts.join(', ') : "$0 (全數為0)";
     }
 
-    // --- 1. 開班、小結與關帳對帳機制 (全額面額化) ---
+    // --- 1. 開班、小結與關帳對帳機制 ---
     function calcOpenTotal() {
         let total = 0;
         DENOM_LIST.forEach(d => {
@@ -600,7 +804,6 @@
             diffEl.style.color = 'var(--danger)';
         }
 
-        // 找零水位預警檢查 ($100 少於 5 張 或 $10 少於 10 枚)
         const c100 = parseInt(document.getElementById('close_den_100').value) || 0;
         const c10 = parseInt(document.getElementById('close_den_10').value) || 0;
         const warnEl = document.getElementById('cs-changeWarning');
@@ -630,7 +833,6 @@
         document.getElementById('salesModal').style.display = 'flex';
     }
 
-    // 小結交班 (印出含面額明細之小結帳條 + 上傳小結紀錄，不結束當日營業帳)
     function submitXReadShift() {
         const st = getShiftStats();
         if (!st) return;
@@ -665,7 +867,6 @@
         notify("📋 小結交班帳條已列印，各面額紀錄已排入雲端同步");
     }
 
-    // 正式關帳 (印出含面額明細之關帳帳條 + 上傳雲端 + 結束班次)
     function submitCloseShift() {
         if (Object.keys(cart).length > 0 || heldOrders.length > 0) {
             return notify("❌ 購物車或暫存掛單尚有未結清訂單，無法關帳！", true);
@@ -778,6 +979,7 @@
                 const p = PRODUCTS.find(x => x.id === ci.id);
                 if (p) p.stock += ci.qty;
             });
+            saveProductsCatalog();
         }
 
         syncQueue.push({ action: 'voidOrder', orderTs: ts, cartItems: order.cartItems, finalTotal: order.finalTotal, ts: Date.now() });
@@ -851,7 +1053,7 @@
         document.getElementById('btnRestoreHold').innerText = `📤 取單 (${heldOrders.length})`;
     }
 
-    // --- 4. 收銀找零計算機與熱感應印單 (含面額明細表) ---
+    // --- 4. 收銀找零計算機與熱感應印單 ---
     function handlePayAction() {
         if(Object.keys(cart).length === 0) return notify("購物清單為空", true);
         const taxId = document.getElementById('taxIdInput').value.trim();
@@ -945,7 +1147,6 @@
         printThermalHTML(buildOrderReceiptHTML(order));
     }
 
-    // 列印小結/關帳帳條 (完整列出開班與交班各面額數量及小計)
     function printShiftReport(title, actualCash, diff, closeDenoms) {
         const st = getShiftStats();
         if (!st) return;
@@ -987,7 +1188,7 @@
         printThermalHTML(html);
     }
 
-    // --- 庫存與原有 POS 邏輯 ---
+    // --- 庫存與收銀前台渲染邏輯 ---
     function toggleView() {
         isInventoryView = !isInventoryView;
         document.getElementById('posContainer').style.display = isInventoryView ? 'none' : 'flex';
@@ -1001,6 +1202,7 @@
         const p = PRODUCTS.find(x => x.id === id);
         if (p) {
             p.stock = Math.max(0, p.stock + delta);
+            saveProductsCatalog();
             const input = document.getElementById(`inv-input-${id}`);
             input.value = p.stock;
             input.classList.add('unsynced'); 
@@ -1011,7 +1213,8 @@
         const p = PRODUCTS.find(x => x.id === id);
         if (p) {
             const num = parseInt(val);
-            p.stock = isNaN(num) || num < 0 ? 0 : num; 
+            p.stock = isNaN(num) || num < 0 ? 0 : num;
+            saveProductsCatalog();
             document.getElementById(`inv-input-${id}`).value = p.stock;
             document.getElementById(`inv-input-${id}`).classList.add('unsynced');
         }
@@ -1021,7 +1224,7 @@
         if(!navigator.onLine) return notify("⚠️ 離線狀態無法同步盤點", true);
         const p = PRODUCTS.find(x => x.id === id);
         if(!p) return;
-        const payload = { action: 'updateStock', id: p.id, stock: p.stock, ts: Date.now() };
+        const payload = { action: 'updateStock', id: p.id, name: p.name, stock: p.stock, ts: Date.now() };
         fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) })
             .then(() => {
                 notify(`✅ [${p.name}] 庫存已更新為: ${p.stock}`);
@@ -1032,8 +1235,12 @@
     function renderInventory() {
         document.getElementById('inventoryTbody').innerHTML = PRODUCTS.map(p => `
             <tr>
-                <td style="color:#8a9ba8; font-family:monospace;">${p.barcode}</td>
-                <td class="inv-td-name">${p.name}</td>
+                <td style="color:#8a9ba8; font-family:monospace;">#${p.id} / ${p.barcode}</td>
+                <td style="font-size:12px; color:#cbd5e1;">${p.cat}</td>
+                <td class="inv-td-name">
+                    ${p.name}
+                    ${p.custom ? '<span style="font-size:10px; background:#0984e3; color:white; padding:1px 5px; border-radius:4px; margin-left:4px;">客製飲品</span>' : ''}
+                </td>
                 <td class="inv-td-cost">$${p.cost}</td>
                 <td class="inv-td-price">$${p.price}</td>
                 <td>
@@ -1042,6 +1249,7 @@
                         <input type="number" id="inv-input-${p.id}" class="inv-input" value="${p.stock}" onchange="handleStockInput(${p.id}, this.value)">
                         <button class="btn-stock-adj" onclick="adjustStock(${p.id}, 1)">+</button>
                         <button class="btn-stock-sync" onclick="syncSingleStock(${p.id})">💾 儲存</button>
+                        <button class="btn-prod-del" onclick="deleteProduct(${p.id})" title="刪除此商品">🗑️</button>
                     </div>
                 </td>
             </tr>`).join('');
@@ -1056,16 +1264,21 @@
         toastTimeout = setTimeout(() => t.style.display = 'none', 3000);
     }
 
+    // 支援開啟「新增商品視窗」時直接刷入新商品條碼
     function setupUSB() {
         document.addEventListener('keydown', (e) => {
-            if(document.activeElement.tagName === 'INPUT') return;
+            if(document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT') return;
             if (e.key === 'Enter') {
                 if (barcodeBuffer.length > 0) {
-                    if (barcodeBuffer.startsWith('/') && barcodeBuffer.length === 8) {
+                    const addModalOpen = document.getElementById('addProductModal').style.display === 'flex';
+                    if (addModalOpen) {
+                        document.getElementById('newProdBarcode').value = barcodeBuffer;
+                        notify(`🏷️ 已刷入新商品條碼: ${barcodeBuffer}`);
+                    } else if (barcodeBuffer.startsWith('/') && barcodeBuffer.length === 8) {
                         document.getElementById('carrierInput').value = barcodeBuffer.toUpperCase();
                         notify(`📱 已刷入手機載具: ${barcodeBuffer.toUpperCase()}`);
                     } else {
-                        const p = PRODUCTS.find(x => x.barcode === barcodeBuffer);
+                        const p = PRODUCTS.find(x => String(x.barcode) === barcodeBuffer);
                         if(p) { addToCart(p.id); notify(`📢 掃描: ${p.name}`); }
                         else { notify(`⚠️ 查無條碼: ${barcodeBuffer}`, true); }
                     }
@@ -1087,33 +1300,36 @@
         notify("💾 備份檔已下載");
     }
 
+    // 依分類分組渲染商品 (確保新增商品自動歸入對應分類區塊)
     function render() {
         if(isInventoryView) return; 
         const grid = document.getElementById('productGrid');
-        grid.innerHTML = ""; let curCat = "";
-        PRODUCTS.forEach(p => {
-            if(p.cat !== curCat) {
-                grid.innerHTML += `<div class="category-title">${p.cat}</div>`;
-                curCat = p.cat;
-            }
-            const isOut = p.stock <= 0 && p.id < 30; 
-            const lowClass = (p.stock > 0 && p.stock <= 5) ? 'low-stock' : '';
-            grid.innerHTML += `
-                <div class="product-card ${isOut ? 'out-of-stock' : ''}" onclick="addToCart(${p.id})">
-                    <span class="p-name">${p.name}</span>
-                    <div>
-                        <span class="p-price">$${p.price}</span><br>
-                        <span class="p-stock ${lowClass}">庫存: ${p.stock}</span>
-                    </div>
-                </div>`;
+        grid.innerHTML = "";
+        
+        const categories = [...new Set(PRODUCTS.map(p => p.cat))];
+        categories.forEach(cat => {
+            grid.innerHTML += `<div class="category-title">${cat}</div>`;
+            PRODUCTS.filter(p => p.cat === cat).forEach(p => {
+                const isOut = (p.trackStock !== false) && p.stock <= 0; 
+                const lowClass = (p.stock > 0 && p.stock <= 5) ? 'low-stock' : '';
+                grid.innerHTML += `
+                    <div class="product-card ${isOut ? 'out-of-stock' : ''}" onclick="addToCart(${p.id})">
+                        <span class="p-name">${p.name}</span>
+                        <div>
+                            <span class="p-price">$${p.price}</span><br>
+                            <span class="p-stock ${lowClass}">庫存: ${p.stock}</span>
+                        </div>
+                    </div>`;
+            });
         });
     }
 
     function addToCart(id) {
         if (!shiftData) return notify("⚠️ 尚未開班，請先點選上方「💰 開班」", true); 
         const p = PRODUCTS.find(x => x.id === id);
+        if (!p) return;
         const currentTotalQty = Object.values(cart).filter(item => item.id === id).length;
-        if (p.id < 30 && currentTotalQty + 1 > p.stock) return notify(`❌ [${p.name}] 庫存不足`, true);
+        if ((p.trackStock !== false) && currentTotalQty + 1 > p.stock) return notify(`❌ [${p.name}] 庫存不足`, true);
 
         if (p.custom) {
             pendingDrinkId = id;
@@ -1306,6 +1522,7 @@
         saveData();
         
         items.forEach(item => { const p = PRODUCTS.find(x => x.id === item.id); if (p) p.stock -= 1; });
+        saveProductsCatalog();
         clearAll(); 
         if(isInventoryView) renderInventory(); else render(); 
         processQueue();
@@ -1323,9 +1540,14 @@
             const q = localStorage.getItem('pos_v11_q'); 
             const h = localStorage.getItem('pos_v11_h');
             const s = localStorage.getItem('pos_shift_data'); 
+            const savedProds = localStorage.getItem('pos_v11_products');
             if(q) syncQueue = JSON.parse(q); 
             if(h) allHistory = JSON.parse(h);
             if(s) shiftData = JSON.parse(s);
+            if(savedProds) {
+                const parsed = JSON.parse(savedProds);
+                if (Array.isArray(parsed) && parsed.length > 0) PRODUCTS = parsed;
+            }
         } catch(e) {
             syncQueue = []; allHistory = []; shiftData = null;
         }
@@ -1357,6 +1579,7 @@
         const fetchUrl = SCRIPT_URL.includes('?') ? SCRIPT_URL + '&action=getStock' : SCRIPT_URL + '?action=getStock';
         fetch(fetchUrl).then(r => r.json()).then(d => {
             PRODUCTS.forEach(p => { if(d[p.id] !== undefined) p.stock = d[p.id]; }); 
+            saveProductsCatalog();
             if(isInventoryView) renderInventory(); else render();
             notify("🔄 庫存已從雲端同步更新");
         }).catch(() => notify("⚠️ 無法載入雲端庫存", true));
